@@ -1,0 +1,127 @@
+
+
+                                   OO Scheme
+                                   ---------
+
+     YASOS in SLIB takes an approach to Object Orientation that could
+     be characterized as 'objects are closures, there are no classes'.
+     This text approaches objects with the view that 'objects and
+     classes are environments'. It is not meant to be the ultimate
+     solution to Object Orientation in Scheme, not even a practical
+     solution at that. It is rather a case of stretching a pleasing
+     idea to see how far it can go before breaking.
+
+
+     The following code implements a class named 'bar' with one class
+     variable, 'cl-a', one class method, 'clwr', one instance variable,
+     'in-a' and one instance method, 'inwr'.
+
+          (define bar
+               (package
+                    (define cl-a 1)
+                    (define (clwr x) (write (+ cl-a x)))
+                    (define (new x)
+                         (package
+                              (define in-a x)
+                              (define (inwr x) (write (+ in-a x)))))))
+
+     The qualified notation can access these entities. I.e. 'bar::cl-a' is
+     the class variable. One can construct a new object with
+
+          (define s (bar::new 3))
+
+     that gives the value 3 to its instance variable. 's::in-a' returns the
+     value of that instance variable. One can access the instance method with
+
+          (s::inwr 2)
+
+     for example, which produces 5. Note that, as a product of implementation,
+     qualified identifiers return values and not variables. So they are not
+     writable by outside functions, which is rather a good thing. Also note
+     that inside method code, class and instance variables are used without
+     qualification, like in familiar OO languages. Of course, only single
+     inheritance can be modelled with environment inclusion.
+
+     This prototypical implementation is semantically correct in making
+     instance methods closures inside the object, but in ordinary languages
+     method code is shared and the object state is supplied to the code at
+     invokation time. Although it saves nothing in our simple example, we
+     can arrange that the code is kept as a shared copy in the class
+     environment and the instance method is but a stub that constructs a
+     closure with that code and calls it. Implementation follows:
+
+          (define foo
+               (package
+                    (define cl-a 1)
+                    (define (clwr x) (write (+ cl-a x)))
+                    (define inwr_impl '(lambda (x) (write (+ in-a x))))
+                    (define (new x)
+                         (package
+                              (define in-a x)
+                              (define (inwr x) (apply (eval inwr_impl) (list x)))))))
+
+
+
+     During my summer vacation, I though that a serious omission was the
+     lack of "send-to-super". It can be rectified with the use of a modified
+     "package" macro. Code follows in TinySCHEME:
+
+          (macro (package-with-super form)
+               `(apply (lambda ()
+                         ,@(cdr form)
+                         (define super (cdr (current-environment)))
+                         (current-environment))))
+
+     This environment-fiddling is specific to TinySCHEME, of course.
+
+     Changing all uses of "package" to "package-with-super", we are
+     free to access names in a superclass or the enclosing environment
+     (which could be considered the outermost class i.e. Object).
+
+          (define bar
+               (package-with-super
+                    (define a 1)
+                    (define (wr x) (write (+ a x)))
+                    (define (new x)
+                         (package-with-super
+                              (define a x)
+                              (define (wr x) (write (+ a super::a x)))))))
+
+     If we now define an object as before
+
+          (define s (bar::new 3))
+
+     we may see that 's::a' is 3, 'bar::a' and 's::super::a' are 1, and
+     'bar::super::a' has whatever value 'a' has, if any, in the global
+     environment.
+
+     That's it. All it lacks is some suitable macro, but I'll write it
+     whenever I find the time.
+     Maybe something like:
+
+          (class foo
+               (classvars (a 1))
+               (instvars (a))
+               (constructor (x) (set! a x))
+               (classmethod (wr x) (write (+ a x)))
+               (instmethod (wr x) (write (+ a x))))
+
+     expanded as
+
+          (define foo
+               (package-with-super
+                    ; class variables
+                    (define a 1)
+                    ; class methods
+                    (define (wr x) (write (+ a x)))
+                    ; implementation of instance methods
+                    (define wr_impl '(lambda (x) (write (+ a x))))
+                    ; constructor
+                    (define (new x)
+                         (package-with-super
+                              ; instance variables
+                              (define a)
+                              ; constructor code
+                              (set! a x)
+                              ; instance method stubs
+                              (define (wr x) (apply (eval wr_impl) (list x)))))))

@@ -1,0 +1,501 @@
+
+
+
+                                   TinySCHEME
+
+-------------------------------------------------------------------------------
+     Version 1.10
+
+     This Scheme interpreter is based on MiniSCHEME version 0.85k4
+     (see miniscm.tar.gz in the Scheme Repository)
+
+     It has been revised by D. Souflis to serve as a scripting language
+     for the HTTP server integrated into the Altera SQL Server
+     <http://www.altera.gr/>.
+
+     D. Souflis (dsouflis@acm.org, dsouflis@altera.gr)
+     Akira KIDA's new address is Akira.Kida@nifty.ne.jp
+
+                    "Safe if used as prescribed"
+                    -- Philip K. Dick, "Ubik"
+
+-------------------------------------------------------------------------------
+
+     Features compared to MiniSCHEME
+     -------------------------------
+
+     All code is now reentrant. Interpreter state is held in a 'scheme'
+     struct, and many interpreters can coexist in the same program, possibly
+     in different threads. The user can specify user-defined memory allocation
+     primitives. (see "Programmer's Reference")
+
+     The reader is more consistent.
+
+     Strings, characters and flonums are supported. (see "Types")
+
+     Files being loaded can be nested up to some depth.
+
+     R5RS I/O is there, plus String Ports. (see "Scheme Reference","I/O")
+
+     Vectors exist.
+
+     As a standalone application, it supports command-line arguments.
+     (see "Standalone")
+
+     Running out of memory is now handled.
+
+     A new "verbatim" comment that echoes its text, facilitates HTML
+     scripting. (see "Verbatim comments")
+
+     The user can add foreign functions in C. (see "Foreign Functions")
+
+     The code has been changed slightly, core functions have been moved
+     to the library, behavior has been aligned with R5RS etc.
+
+     Support has been added for user-defined error recovery.
+     (see "Error Handling")
+
+     Support has been added for modular programming.
+     (see "Colon Qualifiers - Packages")
+
+     To enable this, EVAL has changed internally, and can
+     now take two arguments, as per R5RS. Environments are supported.
+     (see "Colon Qualifiers - Packages")
+
+     Promises are now evaluated once only.
+
+     (macro (foo form) ...) is now equivalent to (macro foo (lambda(form) ...))
+
+     The reader can be extended using new #-expressions
+     (see "Reader extensions")
+
+
+     Things that keep missing, or that need fixing
+     ---------------------------------------------
+
+     There are no hygienic macros. No rational or
+     complex numbers. No unwind-protect and call-with-values.
+
+     Maybe (a subset of) SLIB will work with TinySCHEME...
+
+     I will add a debugger... The user will be able to specify breakpoints,
+     and a new toplevel will be entered when the breakpoint is reached. Most
+     of the actual debugger will be in Scheme, with minimal additions to
+     scheme.c.
+
+
+     Change Log
+     ----------
+     Version 1.02 (25 Aug 1998):
+          First part of R5RS I/O.
+     Version 1.03 (26 Aug 1998):
+          Extended .h with useful functions for FFI
+          Library: with-input-* etc.
+          Finished R5RS I/O, added string ports.
+     Version 1.04
+          Added missing T_ATOM bits...
+          Added vectors
+          Free-list is sorted by address, since vectors need consecutive cells.
+          (quit <exitcode>) for use with scripts
+     Version 1.05
+          Support for scripts, *args*, "-1" option.
+          Various R5RS procedures.
+          *sharp-hook*
+          Handles unmatched parentheses.
+          New architecture for procedures.
+     Version 1.06
+          #! is now skipped
+          generic-assoc bug removed
+          strings are now managed differently, hack.txt is removed
+          various delicate points fixed
+     Version 1.07
+          '=>' in cond now exists
+          list? now checks for circularity
+          some reader bugs removed
+          Reader is more consistent wrt vectors
+          Quote and Quasiquote work with vectors
+     Version 1.08
+          quotient,remainder and modulo. gcd.
+     Version 1.09
+          Removed bug when READ met EOF. lcm.
+     Version 1.10
+          Another bug when file ends with comment!
+
+     Scheme Reference
+     ----------------
+
+     Not yet finished, please refer to the code and "init.scm", since
+     some are library functions.
+     Refer to the MiniSCHEME readme, too.
+
+          Environments
+     (interaction-environment)
+     See R5RS. In TinySCHEME, immutable list of association lists.
+
+     (current-environment)
+     The environment in effect at the time of the call. An example of its
+     use and its utility can be found in the sample code that implements
+     packages in "init.scm":
+
+          (macro (package form)
+               `(apply (lambda ()
+                         ,@(cdr form)
+                         (current-environment))))
+
+     The environment containing the (local) definitions inside the closure
+     is returned as an immutable value.
+
+     (defined? <symbol>) (defined? <symbol> <environment>)
+     Checks whether the given symbol is defined in the current (or given)
+     environment.
+
+          Symbols
+     (gensym)
+     Returns a new interned symbol each time. Will probably move to the
+     library when string->symbol is implemented.
+
+          Directives
+     (gc)
+     Performs garbage collection immediatelly.
+
+     (gcverbose) (gcverbose <bool>)
+     The argument, if abset defaults to #t, controls whether GC produces
+     visible outcome.
+
+     (quit) (quit <num>)
+     Stops the interpreter and sets the 'retcode' internal field (defaults
+     to 0). When standalone, 'retcode' is returned as exit code to the OS.
+
+          Mathematical functions
+     Since rationals and complexes are absent, the respective functions
+     are also missing.
+     Supported: exp, log, sin, cos, tan, asin, acos, atan and also
+     sqrt (not in R5RS) and expt (IEEE) when USE_MATH is defined.
+     Number-theoretical quotient, remainder and modulo, gcd, lcm.
+     Library: exact?, inexact?, odd?, even?, zero?, positive?, negative?,
+     exact->inexact. inexact->exact is a core function.
+
+          Type predicates
+     boolean?,eof-object?,symbol?,number?,string?,integer?,real?,list?,null?,
+     char?,port?,input-port?,output-port?,procedure?,pair?,environment?',
+     vector?. Also closure?, macro?.
+
+          Types
+     Types supported:
+
+          Numbers (integer and real)
+          Symbols
+          Pairs
+          Strings
+          Characters
+          Ports
+          Eof object
+          Environments
+          Vectors
+
+          Literals
+     String literals can contain escaped quotes \" as usual, but also
+     \n, \r and \t. Note also that it is possible to include literal
+     newlines in string literals, e.g.
+
+          (define s "String with newline here
+          and here
+          that can function like a HERE-string")
+
+     Character literals contain #\space and #\newline and are supplemented
+     with #\return and #\tab, with obvious meanings.
+     Numeric literals support #x #o #b and #d. Flonums are currently read only
+     in decimal notation. Full grammar will be supported soon.
+
+          Quote, quasiquote etc.
+     As usual.
+
+          Immutable values
+     Immutable pairs cannot be modified by set-car! and set-cdr!.
+     Immutable strings cannot be modified via string-set!
+
+          I/O
+     As per R5RS, plus String Ports (see below).
+     current-input-port, current-output-port,
+     close-input-port, close-output-port, input-port?, output-port?,
+     open-input-file, open-output-file.
+     read, write, display, newline, write-char, read-char, peek-char.
+     char-ready? returns #t only for string ports, because there is no
+     portable way in stdio to determine if a character is available.
+     Also open-input-output-file, set-input-port, set-output-port (not R5RS)
+     Library: call-with-input-file, call-with-output-file,
+     with-input-from-file, with-output-from-file and
+     with-input-output-from-to-files, close-port and input-output-port? 
+     (not R5RS).
+     String Ports: open-input-string, open-output-string,
+     open-input-output-string. Strings can be used with I/O routines.
+
+          Vectors
+     make-vector, vector, vector-length, vector-ref, vector-set!, list->vector,
+     vector-fill!, vector->list, vector-equal? (auxiliary function, not R5RS)
+
+          Strings
+     string, make-string, list->string, string-length, string-ref, string-set!,
+     substring, string->list, string-fill!, string-append, string-copy.
+     string=?, string<?, string>?, string<=?, string>=?.
+     (No string-ci*?)
+
+          Symbols
+     symbol->string, string->symbol
+
+          Characters
+     integer->char, char->integer.
+     char=?, char<?, char>?, char<=?, char>=?.
+     (No char-ci*?)
+
+          Pairs & Lists
+     cons, car, cdr, list, length, map, for-each, foldr, list-tail,
+     list-ref, last-pair, reverse, append.
+     Also member, memq, memv, based on generic-member, assoc, assq, assv
+     based on generic-assoc.
+
+          Streams
+     head, tail, cons-stream
+
+          Control features
+     Apart from procedure?, also macro? and closure?
+     map, for-each, force, delay, call-with-current-continuation (or call/cc),
+     eval, apply. 'Forcing' a value that is not a promise produces the value.
+     There is no call-with-values, values, nor dynamic-wind. Dynamic-wind in
+     the presence of continuations would require support from the abstract
+     machine itself.
+
+          Property lists
+     TinyScheme inherited from MiniScheme property lists for symbols.
+     put, get.
+
+          Esoteric procedures
+     (oblist)
+     Returns the oblist, an immutable list of all the symbols.
+
+     (macro-expand <form>)
+     Returns the expanded form of the macro call denoted by the argument
+
+     (define-with-return (<procname> <args>...) <body>)
+     Like plain 'define', but makes the continuation available as 'return'
+     inside the procedure. Handy for imperative programs.
+
+     (new-segment <num>)
+     Allocates more memory segments.
+
+     defined?
+     See "Environments"
+
+     (get-closure-code <closure>)
+     Gets the code as scheme data.
+
+
+     Verbatim comments
+     -----------------
+
+     The rest of the line following the '|' character is output verbatim
+     to current output. This can be put to good use in HTML scripts, or
+     to output messages to the user loading a file.
+
+          |Content-type: text/html
+          |
+          |<html><body>
+          |3 + 5 is:
+          (write (+ 3 5))
+          |<br></body></html>
+
+     Verbatim comments must be enabled by defining USE_VERBATIM
+
+
+     Programmer's Reference
+     ----------------------
+
+     The interpreter state is initialized with "scheme_init".
+     Custom memory allocation routines can be installed with
+     "scheme_custom_alloc". Files can be loaded with "scheme_load".
+     It is a good idea to "scheme_load" init.scm at this point.
+
+     External data for keeping external state (of use to foreign functions)
+     can be installed with "scheme_set_external_data".
+     Foreign functions are installed with "assign_foreign". Additional 
+     definitions can be added to the interpreter state, with "scheme_define" 
+     (this is the way HTTP header data and HTML form data are passed to the 
+     Scheme script in the Altera SQL Server).
+
+     The procedure "scheme_apply0" has been added with persistent scripts in
+     mind. Persistent scripts are loaded once, and every time they are needed
+     to produce HTTP output, appropriate data are passed through global
+     definitions and function "main" is called to do the job.
+
+     The interpreter state should be deinitialized with "scheme_deinit".
+
+
+     Foreign Functions
+     -----------------
+
+     The user can add foreign functions in C. For example, a function
+     that squares its argument:
+
+          pointer square(scheme *sc, pointer args) {
+           if(args!=sc->NIL) {
+               if(isnumber(pair_car(args))) {
+                    double v=rvalue(pair_car(args));
+                    return mk_real(sc,v*v);
+               }
+           }
+           return sc->NIL;
+          }
+
+     You install it with:
+     
+          assign_foreign(sc,square,"double");
+
+     after initialization.
+
+     Foreign functions can use the external data in the "scheme" struct
+     to implement any kind of external state.
+
+     External data are set with the following function:
+          void scheme_set_external_data(scheme *sc, void *p);
+
+
+     Standalone
+     ----------
+
+     Usage: TINYSCHEME [-? | <file1> <file2> ... | -1 <file> <arg1> <arg2> ...]
+     assuming that the executable is named TINYSCHEME.
+
+     Use - in the place of a filename to denote stdin.
+     The -1 flag is meant for #! usage in shell scripts. If you specify
+          #! /somewhere/tinyscheme -1
+     then tinyscheme will be called
+
+     Customizing
+     -----------
+
+     The following symbols are defined (or commented out) in scheme.h.
+     Change scheme.h appropriately, or use the -D flag of cc.
+
+     STANDALONE
+     Define this to include "main" so as to produce standalone interpreter.
+
+     USE_MATH
+     Includes math routines.
+
+     USE_ERROR_HOOK
+     To force system errors through user-defined error handling.
+     (see "Error handling")
+
+     USE_VERBATIM
+     Enable verbatim comments. (see "Verbatim comments")
+
+     USE_COLON_HOOK
+     Enable use of qualified identifiers. (see "Colon Qualifiers - Packages")
+     Undefining this has the rather drastic consequence that any code using
+     packages will stop working, and will have to be modified. It should only
+     be used if you *absolutely* need to use '::' in identifiers.
+
+     USE_STRCASECMP
+     Defines stricmp as strcasecmp, for Unix
+
+     STDIO_XLATE
+     Defines that stdio translates "\n" to "\r\n". For DOS/Windows.
+
+
+     Build instructions
+     ------------------
+
+     Are you serious? You want instructions for a single .c file? Just make
+     sure the appropriate symbols described above are defined.
+
+
+     Error Handling
+     --------------
+
+     Errors are recovered from without damage. The user can install his
+     own handler for system errors, by defining *error-hook*. Defining
+     to '() gives the default behavior, which is equivalent to "error".
+     USE_ERROR_HOOK must be defined.
+
+     A simple exception handling mechanism can be found in "init.scm".
+     A new syntactic form is introduced:
+
+          (catch <expr returned exceptionally>
+               <expr1> <expr2> ... <exprN>)
+
+     "Catch" establishes a scope spanning multiple call-frames
+     until another "catch" is encountered.
+
+     Exceptions are thrown with:
+
+          (throw "message")
+
+     If used outside a (catch ...), reverts to (error "message").
+
+     Example of use:
+
+          (define (foo x) (write x) (newline) (/ x 0))
+
+          (catch (begin (display "Error!\n") 0)
+               (write "Before foo ... ")
+               (foo 5)
+               (write "After foo"))
+
+     The exception mechanism can be used even by system errors, by
+
+          (define *error-hook* throw)
+
+     which makes use of the error hook described above.
+
+     If necessary, the user can devise his own exception mechanism with
+     tagged exceptions etc.
+
+
+     Reader extensions
+     -----------------
+
+     When encountering an unknown character after '#', the user-specified
+     procedure *sharp-hook* (if any), is called to read the expression.
+     This can be used to extend the reader to handle user-defined constants
+     or whatever. It should be a procedure without arguments, reading from
+     the current input port (which will be the load-port).
+
+
+     Colon Qualifiers - Packages
+     ---------------------------
+
+     When USE_COLON_HOOK is defined:
+     The lexer now recognizes the construction <qualifier>::<symbol> and
+     transforms it in the following manner (T is the transformation function):
+
+          T(<qualifier>::<symbol>) = (*colon-hook* 'T(<symbol>) <qualifier>)
+
+     where <qualifier> is a symbol not containing any double-colons.
+
+     As the definition is recursive, qualifiers can be nested.
+     The user can define his own *colon-hook*, to handle qualified names.
+     By default, "init.scm" defines *colon-hook* as EVAL. Consequently,
+     the qualifier must denote a Scheme environment, such as one returned
+     by (interaction-environment). "Init.scm" defines a new syntantic form,
+     PACKAGE, as a simple example. It is used like this:
+
+          (define toto
+               (package
+                    (define foo 1)
+                    (define bar +)))
+
+          foo                                     ==>  Error, "foo" undefined
+          (eval 'foo)                             ==>  Error, "foo" undefined
+          (eval 'foo toto)                        ==>  1
+          toto::foo                               ==>  1
+          ((eval 'bar toto) 2 (eval 'foo toto))   ==>  3
+          (toto::bar 2 toto::foo)                 ==>  3
+          (eval (bar 2 foo) toto)                 ==>  3
+
+     If the user installs another package infrastructure, he must define
+     a new 'package' procedure or macro to retain compatibility with supplied
+     code.
+
+     Note: Older versions used ':' as a qualifier. Unfortunately, the use
+     of ':' as a pseudo-qualifier in existing code (i.e. SLIB) essentially
+     precludes its use as a real qualifier.
