@@ -1,7 +1,7 @@
 
 
 
-                       TinySCHEME Version 1.21
+                       TinySCHEME Version 1.22
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -159,7 +159,14 @@ Please read accompanying file license.txt.
 	  on HTML generation. A bug involving backslash notation in strings
 	  has been fixed. '-c' flag now executes next argument as a stream of
 	  Scheme commands.
-	  
+     Version 1.22
+          The new ports had a bug in LOAD. MK_CLOSURE is introduced.
+	  Shawn Wagner inquired about string->number and number->string.
+	  I added string->atom and atom->string and defined the number
+	  functions from them. Doing that, I fixed WRITE applied to symbols
+	  (it didn't quote them). Unfortunately, minimum build is now
+	  slightly larger than 64k... I postpone action because Jason's idea
+	  might solve it elegantly.
           
      Scheme Reference
      ----------------
@@ -302,7 +309,8 @@ Please read accompanying file license.txt.
      string, make-string, list->string, string-length, string-ref, string-set!,
      substring, string->list, string-fill!, string-append, string-copy.
      string=?, string<?, string>?, string>?, string<=?, string>=?.
-     (No string-ci*?)
+     (No string-ci*? yet). string->number, number->string. Also atom->string,
+     string->atom (not R5RS).
 
           Symbols
      symbol->string, string->symbol

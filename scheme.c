@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 2 1
+/* T I N Y S C H E M E    1 . 2 2
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -52,7 +52,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.21"
+#define banner "TinyScheme 1.22"
 
 #include <string.h>
 #include <stdlib.h>
@@ -222,7 +222,8 @@ INTERFACE INLINE int is_environment(pointer p) { return (typeflag(p)&T_ENVIRONME
 #define clrmark(p)       typeflag(p) &= UNMARK
 
 INTERFACE INLINE int is_immutable(pointer p) { return (typeflag(p)&T_IMMUTABLE); }
-#define setimmutable(p)  typeflag(p) |= T_IMMUTABLE
+/*#define setimmutable(p)  typeflag(p) |= T_IMMUTABLE*/
+INTERFACE INLINE void setimmutable(pointer p) { typeflag(p) |= T_IMMUTABLE; }
 
 #define caar(p)          car(car(p))
 #define cadr(p)          car(cdr(p))
@@ -333,7 +334,8 @@ static pointer readstrexp(scheme *sc);
 static INLINE void skipspace(scheme *sc);
 static int token(scheme *sc);
 static void printslashstring(scheme *sc, char *s, int len);
-static int printatom(scheme *sc, pointer l, int f);
+static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen);
+static void printatom(scheme *sc, pointer l, int f);
 static pointer mk_proc(scheme *sc, unsigned int op);
 static pointer mk_closure(scheme *sc, pointer c, pointer e);
 static pointer mk_continuation(scheme *sc, pointer d);
@@ -1109,7 +1111,9 @@ static int file_push(scheme *sc, const char *fname) {
   FILE *fin=fopen(fname,"r");
   if(fin!=0) {
     sc->file_i++;
+    sc->load_stack[sc->file_i].kind=port_file|port_input;
     sc->load_stack[sc->file_i].rep.stdio.file=fin;
+    sc->load_stack[sc->file_i].rep.stdio.closeit=1;
     sc->nesting_stack[sc->file_i]=0;
     sc->loadport->_object._port=sc->load_stack+sc->file_i;
   }
@@ -1276,6 +1280,19 @@ INTERFACE void putstr(scheme *sc, const char *s) {
     fputs(s,pt->rep.stdio.file);
   } else {
     for(;*s;s++) {
+      if(pt->rep.string.curr!=pt->rep.string.past_the_end) {
+	*pt->rep.string.curr++=*s;
+      }
+    }
+  }
+}
+
+static void putchars(scheme *sc, const char *s, int len) {
+  port *pt=sc->outport->_object._port;
+  if(pt->kind&port_file) {
+    fwrite(s,1,len,pt->rep.stdio.file);
+  } else {
+    for(;len;len--) {
       if(pt->rep.string.curr!=pt->rep.string.past_the_end) {
 	*pt->rep.string.curr++=*s;
       }
@@ -1509,8 +1526,18 @@ static void printslashstring(scheme *sc, char *p, int len) {
   putcharacter(sc,'"');
 }
 
+
 /* print atoms */
-static int printatom(scheme *sc, pointer l, int f) {
+static void printatom(scheme *sc, pointer l, int f) {
+  char *p;
+  int len;
+  atom2str(sc,l,f,&p,&len);
+  putchars(sc,p,len);
+}
+
+
+/* Uses internal buffer unless string pointer is already available */
+static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
      char *p;
 
      if (l == sc->NIL) {
@@ -1529,15 +1556,16 @@ static int printatom(scheme *sc, pointer l, int f) {
           if(is_integer(l)) {
                sprintf(p, "%ld", ivalue_unchecked(l));
           } else {
-               sprintf(p, "%g", rvalue_unchecked(l));
+               sprintf(p, "%.10g", rvalue_unchecked(l));
           }
      } else if (is_string(l)) {
           if (!f) {
                p = strvalue(l);
-          } else {
-               p = sc->strbuff;
+          } else { /* Hack, uses the fact that printing is needed */
+               *pp=sc->strbuff;
+	       *plen=0;
                printslashstring(sc, strvalue(l), strlength(l));
-	       return 0;
+	       return;
           }
      } else if (is_character(l)) {
           int c=charvalue(l);
@@ -1571,7 +1599,15 @@ static int printatom(scheme *sc, pointer l, int f) {
                }
           }
      } else if (is_symbol(l)) {
+       if(!f) {
           p = symname(l);
+       } else {  /* Hack, uses the fact that printing is needed */
+	 *pp=sc->strbuff;
+	 *plen=0;
+	 putcharacter(sc,'\'');
+	 putstr(sc,symname(l));
+	 return;
+       }
      } else if (is_proc(l)) {
           p = sc->strbuff;
           sprintf(p, "#<%s PROCEDURE %ld>", procname(l),procnum(l));
@@ -1587,13 +1623,9 @@ static int printatom(scheme *sc, pointer l, int f) {
      } else {
           p = "#<ERROR>";
      }
-     if (f < 0) {
-          return strlen(p);
-     }
-     putstr(sc,p);
-     return 0;
+     *pp=p;
+     *plen=strlen(p);
 }
-
 /* ========== Routines for Evaluation Cycle ========== */
 
 /* make closure. c is code. e is environment */
@@ -1733,6 +1765,7 @@ enum {
    OP_DOMACRO,
 
    OP_LAMBDA,
+   OP_MKCLOSURE,
    OP_QUOTE,
    OP_DEF0,
    OP_DEF1,
@@ -1803,7 +1836,9 @@ enum {
    OP_CHARUPCASE,
    OP_CHARDNCASE,
    OP_SYM2STR,
+   OP_ATOM2STR,
    OP_STR2SYM,
+   OP_STR2ATOM,
    OP_MKSTRING,
    OP_STRLEN,
    OP_STRREF,
@@ -2170,6 +2205,18 @@ static pointer opexe_0(scheme *sc, int op) {
 
      case OP_LAMBDA:     /* lambda */
           s_return(sc,mk_closure(sc, sc->code, sc->envir));
+
+     case OP_MKCLOSURE: /* make-closure */
+       x=car(sc->args);
+       if(car(x)==sc->LAMBDA) {
+	 x=cdr(x);
+       }
+       if(cdr(sc->args)==sc->NIL) {
+	 y=sc->envir;
+       } else {
+	 y=cadr(sc->args);
+       }
+       s_return(sc,mk_closure(sc, x, y));
 
      case OP_QUOTE:      /* quote */
           x=car(sc->code);
@@ -2770,10 +2817,29 @@ static pointer opexe_2(scheme *sc, int op) {
      case OP_STR2SYM:  /* string->symbol */
           s_return(sc,mk_symbol(sc,strvalue(car(sc->args))));
 
+     case OP_STR2ATOM: /* string->atom */ {
+       char *s=strvalue(car(sc->args));
+       if(*s=='#') {
+	 s_return(sc, mk_sharp_const(sc, s+1));
+       } else {
+	 s_return(sc, mk_atom(sc, s));
+       }
+     }
+
      case OP_SYM2STR: /* symbol->string */
           x=mk_string(sc,symname(car(sc->args)));
           setimmutable(x);
           s_return(sc,x);
+     case OP_ATOM2STR: /* atom->string */
+       x=car(sc->args);
+       if(is_number(x) || is_character(x) || is_string(x) || is_symbol(x)) {
+	 char *p;
+	 int len;
+	 atom2str(sc,x,0,&p,&len);
+	 s_return(sc,mk_counted_string(sc,p,len));
+       } else {
+	 Error_1(sc, "atom->string: not an atom", x);
+       }
 
      case OP_MKSTRING: { /* make-string */
           int fill=' ';
@@ -3672,6 +3738,7 @@ static op_code_info dispatch_table[]= {
 #endif
   { opexe_0, 0, 0, 0}, /* OP_DOMACRO, */
   { opexe_0, 0, 0, 0}, /* OP_LAMBDA, */
+  { opexe_0, "make-closure", 1, 2, TST_PAIR TST_ENVIRONMENT}, /* OP_MKCLOSURE */
   { opexe_0, 0, 0, 0}, /* OP_QUOTE, */
   { opexe_0, 0, 0, 0}, /* OP_DEF0, */
   { opexe_0, 0, 0, 0}, /* OP_DEF1, */
@@ -3740,8 +3807,10 @@ static op_code_info dispatch_table[]= {
   { opexe_2, "integer->char", 1, 1, TST_NATURAL}, /* OP_INT2CHAR, */
   { opexe_2, "char-upcase", 1, 1, TST_CHAR}, /* OP_CHARUPCASE, */
   { opexe_2, "char-downcase", 1, 1, TST_CHAR}, /* OP_CHARDNCASE, */
-  { opexe_2, "symbol->string", 1, 1, TST_SYMBOL}, /* OP_STR2SYM, */
-  { opexe_2, "string->symbol", 1, 1, TST_STRING}, /* OP_SYM2STR, */
+  { opexe_2, "symbol->string", 1, 1, TST_SYMBOL}, /* OP_SYM2STR, */
+  { opexe_2, "atom->string", 1, 1, TST_ANY}, /* OP_ATOM2STR, */
+  { opexe_2, "string->symbol", 1, 1, TST_STRING}, /* OP_STR2SYM, */
+  { opexe_2, "string->atom", 1, 1, TST_STRING}, /* OP_STR2ATOM, */
   { opexe_2, "make-string", 1, 2, TST_NATURAL TST_CHAR}, /* OP_MKSTRING, */
   { opexe_2, "string-length", 1, 1, TST_STRING}, /* OP_STRLEN */
   { opexe_2, "string-ref", 2, 2, TST_STRING TST_NATURAL}, /* OP_STRREF */
@@ -3866,14 +3935,14 @@ static void Eval_Cycle(scheme *sc, int op) {
       /* Check number of arguments */
       if(n<pcd->min_arity) {
 	ok=0;
-	sprintf(msg,"%s : needs%s %d arguments",
+	sprintf(msg,"%s : needs%s %d argument(s)",
 		pcd->name,
 		pcd->min_arity==pcd->max_arity?"":" at least",
 		pcd->min_arity);
       }
       if(ok && n>pcd->max_arity) {
 	ok=0;
-	sprintf(msg,"%s : needs%s %d arguments",
+	sprintf(msg,"%s : needs%s %d argument(s)",
 		pcd->name,
 		pcd->min_arity==pcd->max_arity?"":" at most",
 		pcd->max_arity);
@@ -4005,6 +4074,7 @@ INTERFACE static pointer s_immutable_cons(scheme *sc, pointer a, pointer b) {
 }
 
 static struct scheme_interface iface ={
+  scheme_define,
   s_cons,
   s_immutable_cons,
   mk_integer,
@@ -4057,7 +4127,8 @@ static struct scheme_interface iface ={
   is_continuation,
   is_promise,
   is_environment,
-  is_immutable
+  is_immutable,
+  setimmutable
 };
 #endif
 

@@ -1,4 +1,4 @@
-;    Initialization file for TinySCHEME 1.21 
+;    Initialization file for TinySCHEME 1.22 
 
 ; Per R5RS, up to four deep compositions should be defined
 (define (caar x) (car (car x)))
@@ -121,6 +121,21 @@
 
 (define (string-copy str)
      (string-append str))
+
+(define (string->anyatom str pred)
+     (let* ((a (string->atom str)))
+       (if (pred a) a
+	   (error "string->xxx: not a xxx" a))))
+
+(define (string->number str) (string->anyatom str number?))
+
+(define (anyatom->string n pred)
+  (if (pred n)
+      (atom->string n)
+      (error "xxx->string: not a xxx" n)))
+  
+
+(define (number->string n) (anyatom->string n number?))    
 
 (define (char-cmp? cmp a b)
      (cmp (char->integer a) (char->integer b)))
@@ -437,12 +452,20 @@
 (define *error-hook* throw)
 
 
-;;;;; Definition of PACKAGE, to be used with two-argument EVAL
+;;;;; Definition of MAKE-ENVIRONMENT, to be used with two-argument EVAL
 
-(macro (package form)
+(macro (make-environment form)
      `(apply (lambda ()
                ,@(cdr form)
                (current-environment))))
+
+(define-macro (eval-polymorphic x . envl)
+  (display envl)
+  (let* ((env (if (null? envl) (current-environment) (eval (car envl))))
+         (xval (eval x env)))
+    (if (closure? xval)
+	(make-closure (get-closure-code xval) env)
+	xval)))
 
 ; Redefine this if you install another package infrastructure
 ; Also redefine 'package'

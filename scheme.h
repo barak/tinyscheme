@@ -87,7 +87,8 @@ void scheme_set_input_port_file(scheme *sc, FILE *fin);
 void scheme_set_input_port_string(scheme *sc, char *start, char *past_the_end);
 void scheme_set_output_port_file(scheme *sc, FILE *fin);
 void scheme_set_output_port_string(scheme *sc, char *start, char *past_the_end);
-void scheme_load(scheme *sc, FILE *fin);
+void scheme_load_file(scheme *sc, FILE *fin);
+void scheme_load_string(scheme *sc, char *cmd);
 void scheme_apply0(scheme *sc, const char *procname);
 void scheme_set_external_data(scheme *sc, void *p);
 void scheme_define(scheme *sc, pointer symbol, pointer value);
@@ -273,9 +274,11 @@ int is_continuation(pointer p);
 int is_promise(pointer p);
 int is_environment(pointer p);
 int is_immutable(pointer p);
+void setimmutable(pointer p);
 
 #if USE_DL
 struct scheme_interface {
+void (*scheme_define)(scheme *sc, pointer a, pointer b);
 pointer (*cons)(scheme *sc, pointer a, pointer b);
 pointer (*immutable_cons)(scheme *sc, pointer a, pointer b);
 pointer (*mk_integer)(scheme *sc, long num);
@@ -330,7 +333,9 @@ int (*is_continuation)(pointer p);
 int (*is_promise)(pointer p);
 int (*is_environment)(pointer p);
 int (*is_immutable)(pointer p);
+void (*setimmutable)(pointer p);
 };
 #endif
 
 #endif
+
