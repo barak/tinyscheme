@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 3 4
+/* T I N Y S C H E M E    1 . 3 5
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -56,7 +56,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.34"
+#define banner "TinyScheme 1.35"
 
 #include <string.h>
 #include <stdlib.h>
@@ -1195,9 +1195,9 @@ static void gc(scheme *sc, pointer a, pointer b) {
         if (typeflag(p) != 0) { 
           finalize_cell(sc, p); 
           typeflag(p) = 0; 
-          ++sc->fcells; 
           car(p) = sc->NIL; 
         } 
+        ++sc->fcells; 
         cdr(p) = sc->free_cell; 
         sc->free_cell = p; 
       }
