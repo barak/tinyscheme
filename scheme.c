@@ -52,7 +52,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.28"
+#define banner "TinyScheme 1.29"
 
 #include <string.h>
 #include <stdlib.h>
@@ -1314,7 +1314,7 @@ static void putchars(scheme *sc, const char *s, int len) {
   } else {
     for(;len;len--) {
       if(pt->rep.string.curr!=pt->rep.string.past_the_end) {
-	*pt->rep.string.curr++=*s;
+	*pt->rep.string.curr++=*s++;
       }
     }
   }

@@ -1,7 +1,7 @@
 
 
 
-                       TinySCHEME Version 1.28
+                       TinySCHEME Version 1.29
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -202,6 +202,15 @@ Please read accompanying file license.txt.
 	  partially. David Hovemeyer sent me many little changes, that you
 	  will find in version 1.28, and Partice Stoessel modified the 
 	  float reader to conform to R5RS.
+     Version 1.29
+	  The previous version contained a lot of corrections, but there
+	  were a lot more that still wait on a sheet of paper lost in a
+	  carton someplace after my house move... Manuel Heras-Gilsanz
+	  noticed this and resent his own contribution, which relies on
+	  another bugfix that v.1.28 was missing: a problem with string
+	  output, that this version fixes. I hope other people will take
+	  the time to resend their contributions, if they didn't make it
+	  to v.1.28.   
           
      Scheme Reference
      ----------------
