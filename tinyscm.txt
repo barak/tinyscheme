@@ -1,7 +1,7 @@
 
 
 
-                       TinySCHEME Version 1.30
+                       TinySCHEME Version 1.31
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -221,6 +221,12 @@ Please read accompanying file license.txt.
 	  and fixed a lot of other bugs.
 	  Ruhi Bloodworth reported fixes necessary for OS X and a small
 	  bug in dynload.c.
+     Version 1.31
+          Patches to the hastily-done version 1.30. Stephen Gildea fixed
+	  some things done wrongly, and Richard Russo fixed the makefile
+	  for building on Windows. Property lists (heritage from MiniScheme)
+	  are now optional and have dissappeared from the interface. They
+	  should be considered as deprecated.
           
      Scheme Reference
      ----------------
@@ -561,6 +567,9 @@ Please read accompanying file license.txt.
      USE_DL
      Enables dynamically loaded routines. If you define this symbol, you
      should also include dynload.c in your compile.
+
+     USE_PLIST
+     Enables property lists (not Standard Scheme stuff). Off by default.
      
      USE_NO_FEATURES
      Shortcut to disable USE_MATH, USE_CHAR_CLASSIFIERS, USE_ASCII_NAMES,

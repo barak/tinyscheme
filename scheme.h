@@ -35,6 +35,7 @@
 # define USE_TRACING 0
 # define USE_COLON_HOOK 0
 # define USE_DL 0
+# define USE_PLIST 0
 #endif
 
 #if USE_DL
@@ -60,6 +61,10 @@
 
 #ifndef USE_TRACING
 # define USE_TRACING 1
+#endif
+
+#ifndef USE_PLIST
+# define USE_PLIST 0
 #endif
 
 /* To force system errors through user-defined error handling (see *error-hook*) */
@@ -125,16 +130,14 @@ SCHEME_EXPORT void scheme_define(scheme *sc, pointer env, pointer symbol, pointe
 typedef pointer (*foreign_func)(scheme *, pointer);
 
 pointer _cons(scheme *sc, pointer a, pointer b, int immutable);
-#define cons(sc,a,b) _cons(sc,a,b,0)
-#define immutable_cons(sc,a,b) _cons(sc,a,b,1)
 pointer mk_integer(scheme *sc, long num);
 pointer mk_real(scheme *sc, double num);
-SCHEME_EXPORT pointer mk_symbol(scheme *sc, const char *name);
+pointer mk_symbol(scheme *sc, const char *name);
 pointer gensym(scheme *sc);
-SCHEME_EXPORT pointer mk_string(scheme *sc, const char *str);
+pointer mk_string(scheme *sc, const char *str);
 pointer mk_counted_string(scheme *sc, const char *str, int len);
 pointer mk_character(scheme *sc, int c);
-SCHEME_EXPORT pointer mk_foreign_func(scheme *sc, foreign_func f);
+pointer mk_foreign_func(scheme *sc, foreign_func f);
 void putstr(scheme *sc, const char *s);
 
 
@@ -180,7 +183,6 @@ struct scheme_interface {
 
   int (*is_symbol)(pointer p);
   char *(*symname)(pointer p);
-  int (*hasprop)(pointer p);
   
   int (*is_syntax)(pointer p);
   int (*is_proc)(pointer p);
