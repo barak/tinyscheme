@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 2 3
+/* T I N Y S C H E M E    1 . 2 4
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -52,7 +52,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.23"
+#define banner "TinyScheme 1.24"
 
 #include <string.h>
 #include <stdlib.h>
@@ -1593,15 +1593,7 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
                }
           }
      } else if (is_symbol(l)) {
-       if(!f) {
           p = symname(l);
-       } else {  /* Hack, uses the fact that printing is needed */
-	 *pp=sc->strbuff;
-	 *plen=0;
-	 putcharacter(sc,'\'');
-	 putstr(sc,symname(l));
-	 return;
-       }
      } else if (is_proc(l)) {
           p = sc->strbuff;
           sprintf(p, "#<%s PROCEDURE %ld>", procname(l),procnum(l));
