@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 3 2
+/* T I N Y S C H E M E    1 . 3 3
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -53,7 +53,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.32"
+#define banner "TinyScheme 1.33"
 
 #include <string.h>
 #include <stdlib.h>
@@ -1116,22 +1116,24 @@ E2:  setmark(p);
      }
      if (is_atom(p))
           goto E6;
+     /* E4: down car */
      q = car(p);
      if (q && !is_mark(q)) {
-          setatom(p);
+          setatom(p);  /* a note that we have moved car */ 
           car(p) = t;
           t = p;
           p = q;
           goto E2;
      }
-E5:  q = cdr(p);
+ E5:  q = cdr(p); /* down cdr */
      if (q && !is_mark(q)) {
           cdr(p) = t;
           t = p;
           p = q;
           goto E2;
      }
-E6:  if (!t)
+E6:   /* up.  Undo the link switching from steps E4 and E5. */ 
+     if (!t)
           return;
      q = t;
      if (is_atom(q)) {
@@ -2113,7 +2115,15 @@ static void dump_stack_free(scheme *sc)
 
 static INLINE void dump_stack_mark(scheme *sc) 
 { 
-  /* stack uses no Scheme objects in this implementation */ 
+  int nframes = (int)sc->dump;
+  int i;
+  for(i=0; i<nframes; i++) {
+    struct dump_stack_frame *frame;
+    frame = (struct dump_stack_frame *)sc->dump_base + i;
+    mark(frame->args);
+    mark(frame->envir);
+    mark(frame->code);
+  } 
 } 
 
 #else 
