@@ -91,7 +91,7 @@ void scheme_load_file(scheme *sc, FILE *fin);
 void scheme_load_string(scheme *sc, char *cmd);
 void scheme_apply0(scheme *sc, const char *procname);
 void scheme_set_external_data(scheme *sc, void *p);
-void scheme_define(scheme *sc, pointer symbol, pointer value);
+void scheme_define(scheme *sc, pointer env, pointer symbol, pointer value);
 
 /*------------------ Ugly internals -----------------------------------*/
 /*------------------ Of interest only to FFI users --------------------*/
@@ -278,7 +278,7 @@ void setimmutable(pointer p);
 
 #if USE_DL
 struct scheme_interface {
-void (*scheme_define)(scheme *sc, pointer a, pointer b);
+void (*scheme_define)(scheme *sc, pointer env, pointer symbol, pointer value);
 pointer (*cons)(scheme *sc, pointer a, pointer b);
 pointer (*immutable_cons)(scheme *sc, pointer a, pointer b);
 pointer (*mk_integer)(scheme *sc, long num);

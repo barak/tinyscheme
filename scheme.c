@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 2 2
+/* T I N Y S C H E M E    1 . 2 3
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -52,7 +52,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.22"
+#define banner "TinyScheme 1.23"
 
 #include <string.h>
 #include <stdlib.h>
@@ -131,7 +131,6 @@ static num num_sub(num a, num b);
 static num num_rem(num a, num b);
 static num num_mod(num a, num b);
 static int num_eq(num a, num b);
-/* static int num_ne(num a, num b); */
 static int num_gt(num a, num b);
 static int num_ge(num a, num b);
 static int num_lt(num a, num b);
@@ -308,7 +307,7 @@ static pointer get_consecutive_cells(scheme *sc, int n);
 static pointer find_consecutive_cells(scheme *sc, int n);
 static void finalize_cell(scheme *sc, pointer a);
 static int count_consecutive_cells(pointer x, int needed);
-static pointer find_slot_in_env(scheme *sc, pointer env, pointer sym);
+static pointer find_slot_in_env(scheme *sc, pointer env, pointer sym, int all);
 static pointer mk_number(scheme *sc, num n);
 static pointer mk_empty_string(scheme *sc, int len, char fill);
 static char *store_string(scheme *sc, int len, const char *str, char fill);
@@ -463,11 +462,6 @@ static int num_eq(num a, num b) {
  return ret;
 }
 
-/*
-static int num_ne(num a, num b) {
- return !num_eq(a,b);
-}
-*/
 
 static int num_gt(num a, num b) {
  int ret;
@@ -1941,7 +1935,7 @@ enum {
    OP_MACROP
 };
 
-static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl) {
+static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl, int all) {
     pointer x,y;
     for (x = env; x != sc->NIL; x = cdr(x)) {
          for (y = car(x); y != sc->NIL; y = cdr(y)) {
@@ -1952,6 +1946,9 @@ static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl) {
          if (y != sc->NIL) {
               break;
          }
+	 if(!all) {
+	   return sc->NIL;
+	 }
     }
     if (x != sc->NIL) {
           return car(y);
@@ -1959,12 +1956,13 @@ static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl) {
     return sc->NIL;
 }
 
+
 static pointer _Error_1(scheme *sc, const char *s, pointer a) {
 #if USE_ERROR_HOOK
      pointer x;
      pointer hdl=sc->ERROR_HOOK;
 
-     x=find_slot_in_env(sc,sc->envir,hdl);
+     x=find_slot_in_env(sc,sc->envir,hdl,1);
     if (x != sc->NIL) {
          if(a!=0) {
                sc->code = cons(sc, cons(sc, sc->QUOTE, cons(sc,(a), sc->NIL)), sc->NIL);
@@ -2096,7 +2094,7 @@ static pointer opexe_0(scheme *sc, int op) {
      case OP_REAL_EVAL:
 #endif
           if (is_symbol(sc->code)) {    /* symbol */
-               x=find_slot_in_env(sc,sc->envir,sc->code);
+               x=find_slot_in_env(sc,sc->envir,sc->code,1);
                if (x != sc->NIL) {
                     s_return(sc,cdr(x));
                } else {
@@ -2237,24 +2235,21 @@ static pointer opexe_0(scheme *sc, int op) {
           s_goto(sc,OP_EVAL);
 
      case OP_DEF1:  /* define */
-          for (x = car(sc->envir); x != sc->NIL; x = cdr(x)) {
-               if (caar(x) == sc->code) {
-                    break;
-               }
-          }
+       x=find_slot_in_env(sc,sc->envir,sc->code,0);
           if (x != sc->NIL) {
-               cdar(x) = sc->value;
+               cdr(x) = sc->value;
           } else {
                car(sc->envir) = immutable_cons(sc, immutable_cons(sc, sc->code, sc->value), car(sc->envir));
           }
           s_return(sc,sc->code);
+
 
      case OP_DEFP:  /* defined? */
           x=sc->envir;
           if(cdr(sc->args)!=sc->NIL) {
                x=cadr(sc->args);
           }
-          s_retbool(find_slot_in_env(sc,x,car(sc->args))!=sc->NIL);
+          s_retbool(find_slot_in_env(sc,x,car(sc->args),1)!=sc->NIL);
 
      case OP_SET0:       /* set! */
           s_save(sc,OP_SET1, sc->NIL, car(sc->code));
@@ -2262,22 +2257,14 @@ static pointer opexe_0(scheme *sc, int op) {
           s_goto(sc,OP_EVAL);
 
      case OP_SET1:       /* set! */
-          for (x = sc->envir; x != sc->NIL; x = cdr(x)) {
-               for (y = car(x); y != sc->NIL; y = cdr(y)) {
-                    if (caar(y) == sc->code) {
-                         break;
-                    }
-               }
-               if (y != sc->NIL) {
-                    break;
-               }
-          }
-          if (x != sc->NIL) {
-               cdar(y) = sc->value;
+       y=find_slot_in_env(sc,sc->envir,sc->code,1);
+          if (y != sc->NIL) {
+               cdr(y) = sc->value;
                s_return(sc,sc->value);
           } else {
                Error_1(sc,"Unbounded variable", sc->code);
           }
+
 
      case OP_BEGIN:      /* begin */
           if (!is_pair(sc->code)) {
@@ -3448,7 +3435,7 @@ static pointer opexe_5(scheme *sc, int op) {
                setimmutable(x);
                s_return(sc,x);
           case TOK_SHARP: {
-               pointer f=find_slot_in_env(sc,sc->envir,sc->SHARP_HOOK);
+               pointer f=find_slot_in_env(sc,sc->envir,sc->SHARP_HOOK,1);
                if(f==sc->NIL) {
                     Error_0(sc,"Undefined sharp expression");
                } else {
@@ -4320,18 +4307,12 @@ void scheme_load_string(scheme *sc, char *cmd) {
   }
 }
 
-void scheme_define(scheme *sc, pointer symbol, pointer value) {
+void scheme_define(scheme *sc, pointer envir, pointer symbol, pointer value) {
      pointer x;
 
-     pointer envir= sc->global_env;
-
-     for (x = car(envir); x != sc->NIL; x = cdr(x)) {
-          if (caar(x) == symbol) {
-               break;
-          }
-     }
+     x=find_slot_in_env(sc,envir,symbol,0);
      if (x != sc->NIL) {
-          cdar(x) = value;
+          cdr(x) = value;
      } else {
           car(envir) = immutable_cons(sc, immutable_cons(sc, symbol, value), car(envir));
      }
@@ -4389,7 +4370,7 @@ int main(int argc, char **argv) {
   scheme_set_input_port_file(&sc, stdin);
   scheme_set_output_port_file(&sc, stdout);
 #if USE_DL
-  scheme_define(&sc,mk_symbol(&sc,"load-extension"),mk_foreign_func(&sc, scm_load_ext));
+  scheme_define(&sc,sc.global_env,mk_symbol(&sc,"load-extension"),mk_foreign_func(&sc, scm_load_ext));
 #endif
   argv++;
   if(access(file_name,0)!=0) {
@@ -4415,7 +4396,8 @@ int main(int argc, char **argv) {
 	args=cons(&sc,value,args);
       }
       args=reverse_in_place(&sc,sc.NIL,args);
-      scheme_define(&sc,mk_symbol(&sc,"*args*"),args);
+      scheme_define(&sc,sc.global_env,mk_symbol(&sc,"*args*"),args);
+
     } else {
       fin=fopen(file_name,"r");
     }
