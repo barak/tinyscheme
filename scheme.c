@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 2 8
+/* T I N Y S C H E M E    1 . 3 0
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -12,7 +12,9 @@
  *
  */
 
+#define _SCHEME_SOURCE
 #include "scheme.h"
+#include "scheme-private.h"
 #if USE_DL
 # include "dynload.h"
 #endif
@@ -52,7 +54,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.29"
+#define banner "TinyScheme 1.30"
 
 #include <string.h>
 #include <stdlib.h>
@@ -98,7 +100,7 @@ static const char *strlwr(char *s) {
 # define FIRST_CELLSEGS 3
 #endif
 
-enum {
+enum scheme_types {
   T_STRING=1,
   T_NUMBER=2,
   T_SYMBOL=3,
@@ -127,6 +129,14 @@ enum {
 #define MARK         32768    /* 1000000000000000 */
 #define UNMARK       32767    /* 0111111111111111 */
 
+/* operator code */
+enum scheme_opcodes { 
+#define _OP_DEF(A,B,C,D,E,OP) OP, 
+#include "opdefines.h" 
+  OP_MAXDEFINED 
+}; 
+
+
 static num num_add(num a, num b);
 static num num_mul(num a, num b);
 static num num_div(num a, num b);
@@ -140,7 +150,9 @@ static int num_ge(num a, num b);
 static int num_lt(num a, num b);
 static int num_le(num a, num b);
 
+#if USE_MATH
 static double round_per_R5RS(double x);
+#endif
 static int is_zero_double(double x);
 
 static num num_zero;
@@ -337,7 +349,7 @@ static int token(scheme *sc);
 static void printslashstring(scheme *sc, char *s, int len);
 static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen);
 static void printatom(scheme *sc, pointer l, int f);
-static pointer mk_proc(scheme *sc, unsigned int op);
+static pointer mk_proc(scheme *sc, enum scheme_opcodes op);
 static pointer mk_closure(scheme *sc, pointer c, pointer e);
 static pointer mk_continuation(scheme *sc, pointer d);
 static pointer reverse(scheme *sc, pointer a);
@@ -345,17 +357,17 @@ static pointer reverse_in_place(scheme *sc, pointer term, pointer list);
 static pointer append(scheme *sc, pointer a, pointer b);
 static int list_length(scheme *sc, pointer a);
 static int eqv(pointer a, pointer b);
-static pointer opexe_0(scheme *sc, int op);
-static pointer opexe_1(scheme *sc, int op);
-static pointer opexe_2(scheme *sc, int op);
-static pointer opexe_3(scheme *sc, int op);
-static pointer opexe_4(scheme *sc, int op);
-static pointer opexe_5(scheme *sc, int op);
-static pointer opexe_6(scheme *sc, int op);
-static void Eval_Cycle(scheme *sc, int op);
+static pointer opexe_0(scheme *sc, enum scheme_opcodes op);
+static pointer opexe_1(scheme *sc, enum scheme_opcodes op);
+static pointer opexe_2(scheme *sc, enum scheme_opcodes op);
+static pointer opexe_3(scheme *sc, enum scheme_opcodes op);
+static pointer opexe_4(scheme *sc, enum scheme_opcodes op);
+static pointer opexe_5(scheme *sc, enum scheme_opcodes op);
+static pointer opexe_6(scheme *sc, enum scheme_opcodes op);
+static void Eval_Cycle(scheme *sc, enum scheme_opcodes op);
 static void assign_syntax(scheme *sc, char *name);
 static int syntaxnum(pointer p);
-static void assign_proc(scheme *sc, unsigned int op, char *name);
+static void assign_proc(scheme *sc, enum scheme_opcodes, char *name);
 
 #define num_ivalue(n)       (n.is_fixnum?(n).value.ivalue:(long)(n).value.rvalue)
 #define num_rvalue(n)       (!n.is_fixnum?(n).value.rvalue:(double)(n).value.ivalue)
@@ -844,7 +856,6 @@ INTERFACE pointer mk_symbol(scheme *sc, const char *name) {
      } else {
           x = immutable_cons(sc, mk_string(sc, name), sc->NIL);
           typeflag(x) = T_SYMBOL;
-          setimmutable(x);
           setimmutable(car(x));
           sc->oblist = immutable_cons(sc, x, sc->oblist);
           return (x);
@@ -979,13 +990,13 @@ static pointer mk_sharp_const(scheme *sc, char *name) {
                c='\r';
           } else if(stricmp(name+1,"tab")==0) {
                c='\t';
-	  } else if(name[1]=='x' && name[2]!=0) {
-	    int c1;
-	    if(sscanf(name+2,"%x",&c1)==1 && c1<256) {
-	      c=c1;
-	    } else {
-	      return sc->NIL;
-	    }
+     } else if(name[1]=='x' && name[2]!=0) {
+          int c1=0;
+          if(sscanf(name+2,"%x",&c1)==1 && c1<256) {
+               c=c1;
+          } else {
+               return sc->NIL;
+     }
 #if USE_ASCII_NAMES
           } else if(is_ascii_name(name+1,&c)) {
                /* nothing */
@@ -1349,7 +1360,7 @@ static char   *readstr_upto(scheme *sc, char *delim) {
 static pointer readstrexp(scheme *sc) {
   char *p = sc->strbuff;
   int c;
-  int c1;
+  int c1=0;
   enum { st_ok, st_bsl, st_x1, st_x2} state=st_ok;
   
   for (;;) {
@@ -1758,204 +1769,6 @@ static int eqv(pointer a, pointer b) {
 
 /* ========== Evaluation Cycle ========== */
 
-/* operator code */
-enum {
-   OP_LOAD,
-   OP_T0LVL,
-   OP_T1LVL,
-   OP_READ_INTERNAL,
-   OP_GENSYM,
-   OP_VALUEPRINT,
-   OP_EVAL,
-#if USE_TRACING
-   OP_REAL_EVAL,
-#endif
-   OP_E0ARGS,
-   OP_E1ARGS,
-   OP_APPLY,
-#if USE_TRACING
-   OP_REAL_APPLY,
-   OP_TRACING,
-#endif
-   OP_DOMACRO,
-
-   OP_LAMBDA,
-   OP_MKCLOSURE,
-   OP_QUOTE,
-   OP_DEF0,
-   OP_DEF1,
-   OP_DEFP,
-   OP_BEGIN,
-   OP_IF0,
-   OP_IF1,
-   OP_SET0,
-   OP_SET1,
-   OP_LET0,
-   OP_LET1,
-   OP_LET2,
-   OP_LET0AST,
-   OP_LET1AST,
-   OP_LET2AST,
-   OP_LET0REC,
-   OP_LET1REC,
-   OP_LET2REC,
-   OP_COND0,
-   OP_COND1,
-   OP_DELAY,
-   OP_AND0,
-   OP_AND1,
-   OP_OR0,
-   OP_OR1,
-   OP_C0STREAM,
-   OP_C1STREAM,
-   OP_MACRO0,
-   OP_MACRO1,
-   OP_CASE0,
-   OP_CASE1,
-   OP_CASE2,
-
-   OP_PEVAL,
-   OP_PAPPLY,
-   OP_CONTINUATION,
-#if USE_MATH
-   OP_INEX2EX,
-   OP_EXP,
-   OP_LOG,
-   OP_SIN,
-   OP_COS,
-   OP_TAN,
-   OP_ASIN,
-   OP_ACOS,
-   OP_ATAN,
-   OP_SQRT,
-   OP_EXPT,
-   OP_FLOOR,
-   OP_CEILING,
-   OP_TRUNCATE,
-   OP_ROUND,
-#endif
-   OP_ADD,
-   OP_SUB,
-   OP_MUL,
-   OP_DIV,
-   OP_INTDIV,
-   OP_REM,
-   OP_MOD,
-   OP_CAR,
-   OP_CDR,
-   OP_CONS,
-   OP_SETCAR,
-   OP_SETCDR,
-   OP_CHAR2INT,
-   OP_INT2CHAR,
-   OP_CHARUPCASE,
-   OP_CHARDNCASE,
-   OP_SYM2STR,
-   OP_ATOM2STR,
-   OP_STR2SYM,
-   OP_STR2ATOM,
-   OP_MKSTRING,
-   OP_STRLEN,
-   OP_STRREF,
-   OP_STRSET,
-   OP_SUBSTR,
-   OP_VECTOR,
-   OP_MKVECTOR,
-   OP_VECLEN,
-   OP_VECREF,
-   OP_VECSET,
-   OP_NOT,
-   OP_BOOLP,
-   OP_EOFOBJP,
-   OP_NULLP,
-   OP_NUMEQ,
-   OP_LESS,
-   OP_GRE,
-   OP_LEQ,
-   OP_GEQ,
-   OP_SYMBOLP,
-   OP_NUMBERP,
-   OP_STRINGP,
-   OP_INTEGERP,
-   OP_REALP,
-   OP_CHARP,
-#if USE_CHAR_CLASSIFIERS
-   OP_CHARAP,
-   OP_CHARNP,
-   OP_CHARWP,
-   OP_CHARUP,
-   OP_CHARLP,
-#endif
-   OP_PORTP,
-   OP_INPORTP,
-   OP_OUTPORTP,
-   OP_PROCP,
-   OP_PAIRP,
-   OP_LISTP,
-   OP_ENVP,
-   OP_VECTORP,
-   OP_EQ,
-   OP_EQV,
-   OP_FORCE,
-   OP_SAVE_FORCED,
-   OP_WRITE,
-   OP_WRITE_CHAR,
-   OP_DISPLAY,
-   OP_NEWLINE,
-   OP_ERR0,
-   OP_ERR1,
-   OP_REVERSE,
-   OP_LIST_STAR,
-   OP_APPEND,
-   OP_PUT,
-   OP_GET,
-   OP_QUIT,
-   OP_GC,
-   OP_GCVERB,
-   OP_NEWSEGMENT,
-   OP_OBLIST,
-   OP_CURR_INPORT,
-   OP_CURR_OUTPORT,
-   OP_OPEN_INFILE,
-   OP_OPEN_OUTFILE,
-   OP_OPEN_INOUTFILE,
-#if USE_STRING_PORTS
-   OP_OPEN_INSTRING,
-   OP_OPEN_OUTSTRING,
-   OP_OPEN_INOUTSTRING,
-#endif
-   OP_CLOSE_INPORT,
-   OP_CLOSE_OUTPORT,
-   OP_INT_ENV,
-   OP_CURR_ENV,
-
-   OP_READ,
-   OP_READ_CHAR,
-   OP_PEEK_CHAR,
-   OP_CHAR_READY,
-   OP_SET_INPORT,
-   OP_SET_OUTPORT,
-   OP_RDSEXPR,
-   OP_RDLIST,
-   OP_RDDOT,
-   OP_RDQUOTE,
-   OP_RDQQUOTE,
-   OP_RDQQUOTEVEC,
-   OP_RDUNQUOTE,
-   OP_RDUQTSP,
-   OP_RDVEC,
-
-   OP_P0LIST,
-   OP_P1LIST,
-   OP_PVECFROM,
-
-   OP_LIST_LENGTH,
-   OP_ASSQ,
-   OP_GET_CLOSURE,
-   OP_CLOSUREP,
-   OP_MACROP
-};
-
 static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl, int all) {
     pointer x,y;
     for (x = env; x != sc->NIL; x = cdr(x)) {
@@ -2030,7 +1843,7 @@ static pointer _s_return(scheme *sc, pointer a) {
 }
 #define s_return(sc,a) return _s_return(sc,a)
 
-static void s_save(scheme *sc, int op, pointer args, pointer code) {
+static void s_save(scheme *sc, enum scheme_opcodes op, pointer args, pointer code) {
     sc->dump = cons(sc, sc->envir, cons(sc, (code), sc->dump));
     sc->dump = cons(sc, (args), sc->dump);
     sc->dump = cons(sc, mk_integer(sc, (long)(op)), sc->dump);
@@ -2038,7 +1851,7 @@ static void s_save(scheme *sc, int op, pointer args, pointer code) {
 
 #define s_retbool(tf)    s_return(sc,(tf) ? sc->T : sc->F)
 
-static pointer opexe_0(scheme *sc, int op) {
+static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
      pointer x, y;
 
      switch (op) {
@@ -2392,7 +2205,7 @@ static pointer opexe_0(scheme *sc, int op) {
      return sc->T;
 }
 
-static pointer opexe_1(scheme *sc, int op) {
+static pointer opexe_1(scheme *sc, enum scheme_opcodes op) {
      pointer x, y;
 
      switch (op) {
@@ -2604,10 +2417,12 @@ static pointer opexe_1(scheme *sc, int op) {
      return sc->T;
 }
 
-static pointer opexe_2(scheme *sc, int op) {
+static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
      pointer x;
      num v;
+#if USE_MATH
      double dd;
+#endif
 
      switch (op) {
 #if USE_MATH
@@ -2876,7 +2691,7 @@ static pointer opexe_2(scheme *sc, int op) {
 
           index=ivalue(cadr(sc->args));
 
-          if((size_t)index>=strlength(car(sc->args))) {
+          if(index>=strlength(car(sc->args))) {
                Error_1(sc,"string-ref: out of bounds:",cadr(sc->args));
           }
 
@@ -2894,7 +2709,7 @@ static pointer opexe_2(scheme *sc, int op) {
           str=strvalue(car(sc->args));
 
           index=ivalue(cadr(sc->args));
-          if((size_t)index>=strlength(car(sc->args))) {
+          if(index>=strlength(car(sc->args))) {
                Error_1(sc,"string-set!: out of bounds:",cadr(sc->args));
           }
 
@@ -2902,6 +2717,25 @@ static pointer opexe_2(scheme *sc, int op) {
 
           str[index]=(char)c;
           s_return(sc,car(sc->args));
+     }
+
+     case OP_STRAPPEND: { /* string-append */
+       /* in 1.29 string-append was in Scheme in init.scm but was too slow */
+       int len = 0;
+       pointer newstr;
+       char *pos;
+
+       /* compute needed length for new string */
+       for (x = sc->args; x != sc->NIL; x = cdr(x)) {
+          len += strlength(car(x));
+       }
+       newstr = mk_empty_string(sc, len, ' ');
+       /* store the contents of the argument strings into the new string */
+       for (pos = strvalue(newstr), x = sc->args; x != sc->NIL;
+           pos += strlength(car(x)), x = cdr(x)) {
+           memcpy(pos, strvalue(car(x)), strlength(car(x)));
+       }
+       s_return(sc, newstr);
      }
 
      case OP_SUBSTR: { /* substring */
@@ -2914,14 +2748,14 @@ static pointer opexe_2(scheme *sc, int op) {
 
           index0=ivalue(cadr(sc->args));
 
-          if((size_t)index0>=strlength(car(sc->args))) {
-               Error_1(sc,"substring: out of bounds:",cadr(sc->args));
+          if(index0>strlength(car(sc->args))) {
+               Error_1(sc,"substring: start out of bounds:",cadr(sc->args));
           }
 
           if(cddr(sc->args)!=sc->NIL) {
                index1=ivalue(caddr(sc->args));
-               if((size_t)index1>strlength(car(sc->args)) || index1<index0) {
-                    Error_1(sc,"substring: out of bounds:",caddr(sc->args));
+               if(index1>strlength(car(sc->args)) || index1<index0) {
+                    Error_1(sc,"substring: end out of bounds:",caddr(sc->args));
                }
           } else {
                index1=strlength(car(sc->args));
@@ -3016,10 +2850,10 @@ static int list_length(scheme *sc, pointer a) {
      return -1;
 }
 
-static pointer opexe_3(scheme *sc, int op) {
+static pointer opexe_3(scheme *sc, enum scheme_opcodes op) {
      pointer x;
      num v;
-     int (*comp_func)(num,num);
+     int (*comp_func)(num,num)=0;
 
      switch (op) {
      case OP_NOT:        /* not */
@@ -3094,14 +2928,21 @@ static pointer opexe_3(scheme *sc, int op) {
      case OP_PAIRP:       /* pair? */
           s_retbool(is_pair(car(sc->args)));
      case OP_LISTP: {     /* list? */
-          x=car(sc->args);
-          if(!is_pair(x)) {
-               s_retbool(0);
+          pointer slow, fast;
+          slow = fast = car(sc->args);
+          while (1) {
+             if (!is_pair(fast)) s_retbool(fast == sc->NIL);
+             fast = cdr(fast);
+             if (!is_pair(fast)) s_retbool(fast == sc->NIL);
+             fast = cdr(fast);
+             slow = cdr(slow);
+             if (fast == slow) {
+                  /* the fast pointer has looped back around and caught up
+                     with the slow pointer, hence the structure is circular,
+                     not of finite length, and therefore not a list */
+                  s_retbool(0);
+             }
           }
-          for(x=cdr(x); is_pair(x); x=cdr(x)) {
-               if(x==car(sc->args)) break;
-          }
-          s_retbool(x==sc->NIL);
      }
      case OP_ENVP:        /* environment? */
           s_retbool(is_environment(car(sc->args)));
@@ -3118,14 +2959,14 @@ static pointer opexe_3(scheme *sc, int op) {
      return sc->T;
 }
 
-static pointer opexe_4(scheme *sc, int op) {
+static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
      pointer x, y;
 
      switch (op) {
      case OP_FORCE:      /* force */
           sc->code = car(sc->args);
           if (is_promise(sc->code)) {
-	    /* Should change type to closure here */
+               /* Should change type to closure here */
                s_save(sc, OP_SAVE_FORCED, sc->NIL, sc->code);
                sc->args = sc->NIL;
                s_goto(sc,OP_APPLY);
@@ -3279,7 +3120,7 @@ static pointer opexe_4(scheme *sc, int op) {
      case OP_OPEN_INFILE: /* open-input-file */
      case OP_OPEN_OUTFILE: /* open-output-file */
      case OP_OPEN_INOUTFILE: /* open-input-output-file */ {
-          int prop;
+          int prop=0;
           pointer p;
           switch(op) {
                case OP_OPEN_INFILE:     prop=port_input; break;
@@ -3297,7 +3138,7 @@ static pointer opexe_4(scheme *sc, int op) {
      case OP_OPEN_INSTRING: /* open-input-string */
      case OP_OPEN_OUTSTRING: /* open-output-string */
      case OP_OPEN_INOUTSTRING: /* open-input-output-string */ {
-          int prop;
+          int prop=0;
           pointer p;
           switch(op) {
                case OP_OPEN_INSTRING:     prop=port_input; break;
@@ -3330,7 +3171,7 @@ static pointer opexe_4(scheme *sc, int op) {
      return sc->T;
 }
 
-static pointer opexe_5(scheme *sc, int op) {
+static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
      pointer x;
 
      if(sc->nesting!=0) {
@@ -3618,7 +3459,7 @@ static pointer opexe_5(scheme *sc, int op) {
      return sc->T;
 }
 
-static pointer opexe_6(scheme *sc, int op) {
+static pointer opexe_6(scheme *sc, enum scheme_opcodes op) {
      pointer x, y;
      long v;
 
@@ -3672,7 +3513,7 @@ static pointer opexe_6(scheme *sc, int op) {
      return sc->T; /* NOTREACHED */
 }
 
-typedef pointer (*dispatch_func)(scheme *, int);
+typedef pointer (*dispatch_func)(scheme *, enum scheme_opcodes);
 
 typedef int (*test_predicate)(pointer);
 static int is_any(pointer p) { return 1;}
@@ -3731,197 +3572,11 @@ typedef struct {
 
 #define INF_ARG 0xffff
 
-static op_code_info dispatch_table[]= {
-  { opexe_0, "load", 1, 1, TST_STRING}, /* OP_LOAD = 0, */
-  { opexe_0, 0, 0, 0}, /* OP_T0LVL, */
-  { opexe_0, 0, 0, 0}, /* OP_T1LVL, */
-  { opexe_0, 0, 0, 0}, /* OP_READ_INTERNAL, */
-  { opexe_0, "gensym", 0, 0}, /* OP_GENSYM, */
-  { opexe_0, 0, 0, 0}, /* OP_VALUEPRINT, */
-  { opexe_0, 0, 0, 0}, /* OP_EVAL, */
-#if USE_TRACING
-  { opexe_0, 0, 0, 0}, /* OP_REAL_EVAL, */
-#endif
-  { opexe_0, 0, 0, 0}, /* OP_E0ARGS, */
-  { opexe_0, 0, 0, 0}, /* OP_E1ARGS, */
-  { opexe_0, 0, 0, 0}, /* OP_APPLY, */
-#if USE_TRACING
-  { opexe_0, 0, 0, 0}, /* OP_REAL_APPLY, */
-  { opexe_0, "tracing", 1, 1, TST_NATURAL}, /* OP_TRACING, */
-#endif
-  { opexe_0, 0, 0, 0}, /* OP_DOMACRO, */
-  { opexe_0, 0, 0, 0}, /* OP_LAMBDA, */
-  { opexe_0, "make-closure", 1, 2, TST_PAIR TST_ENVIRONMENT}, /* OP_MKCLOSURE */
-  { opexe_0, 0, 0, 0}, /* OP_QUOTE, */
-  { opexe_0, 0, 0, 0}, /* OP_DEF0, */
-  { opexe_0, 0, 0, 0}, /* OP_DEF1, */
-  { opexe_0, "defined?", 1, 2, TST_SYMBOL TST_ENVIRONMENT}, /* OP_DEFP, */
-  { opexe_0, 0, 0, 0}, /* OP_BEGIN, */
-  { opexe_0, 0, 0, 0}, /* OP_IF0, */
-  { opexe_0, 0, 0, 0}, /* OP_IF1, */
-  { opexe_0, 0, 0, 0}, /* OP_SET0, */
-  { opexe_0, 0, 0, 0}, /* OP_SET1, */
-  { opexe_0, 0, 0, 0}, /* OP_LET0, */
-  { opexe_0, 0, 0, 0}, /* OP_LET1, */
-  { opexe_0, 0, 0, 0}, /* OP_LET2, */
-  { opexe_0, 0, 0, 0}, /* OP_LET0AST, */
-  { opexe_0, 0, 0, 0}, /* OP_LET1AST, */
-  { opexe_0, 0, 0, 0}, /* OP_LET2AST, */
-  { opexe_1, 0, 0, 0}, /* OP_LET0REC, */
-  { opexe_1, 0, 0, 0}, /* OP_LET1REC, */
-  { opexe_1, 0, 0, 0}, /* OP_LETREC2, */
-  { opexe_1, 0, 0, 0}, /* OP_COND0, */
-  { opexe_1, 0, 0, 0}, /* OP_COND1, */
-  { opexe_1, 0, 0, 0}, /* OP_DELAY, */
-  { opexe_1, 0, 0, 0}, /* OP_AND0, */
-  { opexe_1, 0, 0, 0}, /* OP_AND1, */
-  { opexe_1, 0, 0, 0}, /* OP_OR0, */
-  { opexe_1, 0, 0, 0}, /* OP_OR1, */
-  { opexe_1, 0, 0, 0}, /* OP_C0STREAM, */
-  { opexe_1, 0, 0, 0}, /* OP_C1STREAM, */
-  { opexe_1, 0, 0, 0}, /* OP_MACRO0, */
-  { opexe_1, 0, 0, 0}, /* OP_MACRO1, */
-  { opexe_1, 0, 0, 0}, /* OP_CASE0, */
-  { opexe_1, 0, 0, 0}, /* OP_CASE1, */
-  { opexe_1, 0, 0, 0}, /* OP_CASE2, */
-  { opexe_1, "eval", 1, 2, TST_ANY TST_ENVIRONMENT}, /* OP_PEVAL, */
-  { opexe_1, "apply", 1, INF_ARG, TST_NONE}, /* OP_PAPPLY, */
-  { opexe_1, "call-with-current-continuation", 1, 1, TST_NONE}, /* OP_CONTINUATION, */
-#if USE_MATH
-  { opexe_2, "inexact->exact", 1, 1, TST_NUMBER}, /* OP_INEX2EX, */
-  { opexe_2, "exp", 1, 1, TST_NUMBER}, /* OP_EXP, */
-  { opexe_2, "log", 1, 1, TST_NUMBER}, /* OP_LOG, */
-  { opexe_2, "sin", 1, 1, TST_NUMBER}, /* OP_SIN, */
-  { opexe_2, "cos", 1, 1, TST_NUMBER}, /* OP_COS, */
-  { opexe_2, "tan", 1, 1, TST_NUMBER}, /* OP_TAN, */
-  { opexe_2, "asin", 1, 1, TST_NUMBER}, /* OP_ASIN, */
-  { opexe_2, "acos", 1, 1, TST_NUMBER}, /* OP_ACOS, */
-  { opexe_2, "atan", 1, 2, TST_NUMBER}, /* OP_ATAN, */
-  { opexe_2, "sqrt", 1, 1, TST_NUMBER}, /* OP_SQRT, */
-  { opexe_2, "expt", 2, 2, TST_NUMBER}, /* OP_EXPT, */
-  { opexe_2, "floor", 1, 1, TST_NUMBER}, /* OP_FLOOR, */
-  { opexe_2, "ceiling", 1, 1, TST_NUMBER}, /* OP_CEILING, */
-  { opexe_2, "truncate", 1, 1, TST_NUMBER}, /* OP_TRUNCATE, */
-  { opexe_2, "round", 1, 1, TST_NUMBER}, /* OP_ROUND, */
-#endif
-  { opexe_2, "+", 0, INF_ARG, TST_NUMBER}, /* OP_ADD, */
-  { opexe_2, "-", 1, INF_ARG, TST_NUMBER}, /* OP_SUB, */
-  { opexe_2, "*", 0, INF_ARG, TST_NUMBER}, /* OP_MUL, */
-  { opexe_2, "/", 1, INF_ARG, TST_NUMBER}, /* OP_DIV, */
-  { opexe_2, "quotient", 1, INF_ARG, TST_INTEGER}, /* OP_INTDIV, */
-  { opexe_2, "remainder", 2, 2, TST_INTEGER}, /* OP_REM, */
-  { opexe_2, "modulo", 2, 2, TST_INTEGER}, /* OP_MOD, */
-  { opexe_2, "car", 1, 1, TST_PAIR}, /* OP_CAR, */
-  { opexe_2, "cdr", 1, 1, TST_PAIR}, /* OP_CDR, */
-  { opexe_2, "cons", 2, 2, TST_NONE}, /* OP_CONS, */
-  { opexe_2, "set-car!", 2, 2, TST_PAIR TST_ANY}, /* OP_SETCAR, */
-  { opexe_2, "set-cdr!", 2, 2, TST_PAIR TST_ANY}, /* OP_SETCDR, */
-  { opexe_2, "char->integer", 1, 1, TST_CHAR}, /* OP_CHAR2INT, */
-  { opexe_2, "integer->char", 1, 1, TST_NATURAL}, /* OP_INT2CHAR, */
-  { opexe_2, "char-upcase", 1, 1, TST_CHAR}, /* OP_CHARUPCASE, */
-  { opexe_2, "char-downcase", 1, 1, TST_CHAR}, /* OP_CHARDNCASE, */
-  { opexe_2, "symbol->string", 1, 1, TST_SYMBOL}, /* OP_SYM2STR, */
-  { opexe_2, "atom->string", 1, 1, TST_ANY}, /* OP_ATOM2STR, */
-  { opexe_2, "string->symbol", 1, 1, TST_STRING}, /* OP_STR2SYM, */
-  { opexe_2, "string->atom", 1, 1, TST_STRING}, /* OP_STR2ATOM, */
-  { opexe_2, "make-string", 1, 2, TST_NATURAL TST_CHAR}, /* OP_MKSTRING, */
-  { opexe_2, "string-length", 1, 1, TST_STRING}, /* OP_STRLEN */
-  { opexe_2, "string-ref", 2, 2, TST_STRING TST_NATURAL}, /* OP_STRREF */
-  { opexe_2, "string-set!", 3, 3, TST_STRING TST_NATURAL TST_CHAR}, /* OP_STRSET */
-  { opexe_2, "substring", 2, 3, TST_STRING TST_NATURAL}, /* OP_SUBSTR */
-  { opexe_2, "vector", 0, INF_ARG, TST_NONE}, /* OP_VECTOR */
-  { opexe_2, "make-vector", 1, 2, TST_NATURAL TST_ANY}, /* OP_MKVECTOR */
-  { opexe_2, "vector-length", 1, 1, TST_VECTOR}, /* OP_VECLEN */
-  { opexe_2, "vector-ref", 2, 2, TST_VECTOR TST_NATURAL}, /* OP_VECREF */
-  { opexe_2, "vector-set!", 3, 3, TST_VECTOR TST_NATURAL TST_ANY}, /* OP_VECSET */
-  { opexe_3, "not", 1, 1, TST_NONE}, /* OP_NOT, */
-  { opexe_3, "boolean?", 1, 1, TST_NONE}, /* OP_BOOLP, */
-  { opexe_3, "eof-object?", 1, 1, TST_NONE}, /* OP_EOFOBJP, */
-  { opexe_3, "null?", 1, 1, TST_NONE}, /* OP_NULLP, */
-  { opexe_3, "=", 2, INF_ARG, TST_NUMBER}, /* OP_NUMEQ, */
-  { opexe_3, "<", 2, INF_ARG, TST_NUMBER}, /* OP_LESS, */
-  { opexe_3, ">", 2, INF_ARG, TST_NUMBER}, /* OP_GRE, */
-  { opexe_3, "<=", 2, INF_ARG, TST_NUMBER}, /* OP_LEQ, */
-  { opexe_3, ">=", 2, INF_ARG, TST_NUMBER}, /* OP_GEQ, */
-  { opexe_3, "symbol?", 1, 1, TST_ANY}, /* OP_SYMBOLP, */
-  { opexe_3, "number?", 1, 1, TST_ANY}, /* OP_NUMBERP, */
-  { opexe_3, "string?", 1, 1, TST_ANY}, /* OP_STRINGP, */
-  { opexe_3, "integer?", 1, 1, TST_ANY}, /* OP_INTEGERP, */
-  { opexe_3, "real?", 1, 1, TST_ANY}, /* OP_REALP, */
-  { opexe_3, "char?", 1, 1, TST_ANY}, /* OP_CHARP */
-#if USE_CHAR_CLASSIFIERS
-  { opexe_3, "char-alphabetic?", 1, 1, TST_CHAR}, /* OP_CHARAP */
-  { opexe_3, "char-numeric?", 1, 1, TST_CHAR}, /* OP_CHARNP */
-  { opexe_3, "char-whitespace?", 1, 1, TST_CHAR}, /* OP_CHARWP */
-  { opexe_3, "char-upper-case?", 1, 1, TST_CHAR}, /* OP_CHARUP */
-  { opexe_3, "char-lower-case?", 1, 1, TST_CHAR}, /* OP_CHARLP */
-#endif
-  { opexe_3, "port?", 1, 1, TST_ANY}, /* OP_PORTP */
-  { opexe_3, "input-port?", 1, 1, TST_ANY}, /* OP_INPORTP */
-  { opexe_3, "output-port?", 1, 1, TST_ANY}, /* OP_OUTPORTP */
-  { opexe_3, "procedure?", 1, 1, TST_ANY}, /* OP_PROCP, */
-  { opexe_3, "pair?", 1, 1, TST_ANY}, /* OP_PAIRP, */
-  { opexe_3, "list?", 1, 1, TST_ANY}, /* OP_LISTP, */
-  { opexe_3, "environment?", 1, 1, TST_ANY}, /* OP_ENVP, */
-  { opexe_3, "vector?", 1, 1, TST_ANY}, /* OP_VECTORP, */
-  { opexe_3, "eq?", 2, 2, TST_ANY}, /* OP_EQ, */
-  { opexe_3, "eqv?", 2, 2, TST_ANY}, /* OP_EQV, */
-  { opexe_4, "force", 1, 1, TST_ANY}, /* OP_FORCE, */
-  { opexe_4, 0, 0, 0}, /* OP_SAVE_FORCED, */
-  { opexe_4, "write", 1, 2, TST_ANY TST_OUTPORT}, /* OP_WRITE, */
-  { opexe_4, "write-char", 1, 2, TST_CHAR TST_OUTPORT}, /* OP_WRITE_CHAR, */
-  { opexe_4, "display", 1, 2, TST_ANY TST_OUTPORT}, /* OP_DISPLAY, */
-  { opexe_4, "newline", 0, 1, TST_OUTPORT}, /* OP_NEWLINE, */
-  { opexe_4, "error", 1, INF_ARG, TST_NONE}, /* OP_ERR0, always TST_NONE! */
-  { opexe_4, 0, 0, 0}, /* OP_ERR1, */
-  { opexe_4, "reverse", 1, 1, TST_PAIR}, /* OP_REVERSE, */
-  { opexe_4, "list*", 1, INF_ARG, TST_NONE}, /* OP_LIST_STAR, */
-  { opexe_4, "append", 0, INF_ARG, TST_NONE}, /* OP_APPEND, */
-  { opexe_4, "put", 3, 3, TST_NONE}, /* OP_PUT, */
-  { opexe_4, "get", 2, 2, TST_NONE}, /* OP_GET, */
-  { opexe_4, "quit", 0, 1, TST_NUMBER}, /* OP_QUIT, */
-  { opexe_4, "gc", 0, 0}, /* OP_GC, */
-  { opexe_4, "gc-verbose", 0, 1, TST_NONE}, /* OP_GCVERB, */
-  { opexe_4, "new-segment", 0, 1, TST_NUMBER}, /* OP_NEWSEGMENT, */
-  { opexe_4, "oblist", 0, 0}, /* OP_OBLIST, */
-  { opexe_4, "current-input-port", 0, 0}, /* OP_CURR_INPORT, */
-  { opexe_4, "current-output-port", 0, 0}, /* OP_CURR_OUTPORT, */
-  { opexe_4, "open-input-file", 1, 1, TST_STRING}, /* OP_OPEN_INFILE, */
-  { opexe_4, "open-output-file", 1, 1, TST_STRING}, /* OP_OPEN_OUTFILE, */
-  { opexe_4, "open-input-output-file", 1, 1, TST_STRING}, /* OP_OPEN_INOUTFILE, */
-#if USE_STRING_PORTS
-  { opexe_4, "open-input-string", 1, 1, TST_STRING}, /* OP_OPEN_INSTRING, */
-  { opexe_4, "open-output-string", 1, 1, TST_STRING}, /* OP_OPEN_OUTSTRING, */
-  { opexe_4, "open-input-output-string", 1, 1, TST_STRING}, /* OP_OPEN_INOUTSTRING, */
-#endif
-  { opexe_4, "close-input-port", 1, 1, TST_INPORT}, /* OP_CLOSE_INPORT, */
-  { opexe_4, "close-output-port", 1, 1, TST_OUTPORT}, /* OP_CLOSE_OUTPORT, */
-  { opexe_4, "interaction-environment", 0, 0}, /* OP_INT_ENV, */
-  { opexe_4, "current-environment", 0, 0}, /* OP_CURR_ENV, */
-  { opexe_5, "read", 0, 1, TST_INPORT}, /* OP_READ, */
-  { opexe_5, "read-char", 0, 1, TST_INPORT}, /* OP_READ_CHAR, */
-  { opexe_5, "peek-char", 0, 1, TST_INPORT}, /* OP_PEEK_CHAR, */
-  { opexe_5, "char-ready?", 0, 1, TST_INPORT}, /* OP_CHAR_READY, */
-  { opexe_5, "set-input-port", 1, 1, TST_INPORT}, /* OP_SET_INPORT, */
-  { opexe_5, "set-output-port", 1, 1, TST_OUTPORT}, /* OP_SET_OUTPORT, */
-  { opexe_5, 0, 0, 0}, /* OP_RDSEXPR, */
-  { opexe_5, 0, 0, 0}, /* OP_RDLIST, */
-  { opexe_5, 0, 0, 0}, /* OP_RDDOT, */
-  { opexe_5, 0, 0, 0}, /* OP_RDQUOTE, */
-  { opexe_5, 0, 0, 0}, /* OP_RDQQUOTE, */
-  { opexe_5, 0, 0, 0}, /* OP_RDQQUOTEVEC */
-  { opexe_5, 0, 0, 0}, /* OP_RDUNQUOTE, */
-  { opexe_5, 0, 0, 0}, /* OP_RDUQTSP, */
-  { opexe_5, 0, 0, 0}, /* OP_RDVEC, */
-  { opexe_5, 0, 0, 0}, /* OP_P0LIST, */
-  { opexe_5, 0, 0, 0}, /* OP_P1LIST, */
-  { opexe_5, 0, 0, 0}, /* OP_PVECFROM, */
-  { opexe_6, "length", 1, 1, TST_LIST}, /* OP_LIST_LENGTH, */
-  { opexe_6, "assq", 2, 2, TST_NONE}, /* OP_ASSQ, */
-  { opexe_6, "get-closure-code", 1, 1, TST_NONE}, /* OP_GET_CLOSURE, */
-  { opexe_6, "closure?", 1, 1, TST_NONE}, /* OP_CLOSUREP, */
-  { opexe_6, "macro?", 1, 1, TST_NONE} /* OP_MACROP, */
-};
+static op_code_info dispatch_table[]= { 
+#define _OP_DEF(A,B,C,D,E,OP) {A,B,C,D,E}, 
+#include "opdefines.h" 
+  { 0 } 
+}; 
 
 static const char *procname(pointer x) {
  int n=procnum(x);
@@ -3933,7 +3588,7 @@ static const char *procname(pointer x) {
 }
 
 /* kernel of this intepreter */
-static void Eval_Cycle(scheme *sc, int op) {
+static void Eval_Cycle(scheme *sc, enum scheme_opcodes op) {
   int count=0;
   int old_op;
   
@@ -4025,7 +3680,7 @@ static void assign_syntax(scheme *sc, char *name) {
      sc->oblist = immutable_cons(sc, x, sc->oblist);
 }
 
-static void assign_proc(scheme *sc, unsigned int op, char *name) {
+static void assign_proc(scheme *sc, enum scheme_opcodes op, char *name) {
      pointer x, y;
 
      x = mk_symbol(sc, name);
@@ -4033,7 +3688,7 @@ static void assign_proc(scheme *sc, unsigned int op, char *name) {
      car(sc->global_env) = immutable_cons(sc, immutable_cons(sc, x, y), car(sc->global_env));
 }
 
-static pointer mk_proc(scheme *sc, unsigned int op) {
+static pointer mk_proc(scheme *sc, enum scheme_opcodes op) {
      pointer y;
 
      y = get_cell(sc, sc->NIL, sc->NIL);
@@ -4087,7 +3742,7 @@ INTERFACE static pointer s_immutable_cons(scheme *sc, pointer a, pointer b) {
  return immutable_cons(sc,a,b);
 }
 
-static struct scheme_interface iface ={
+static struct scheme_interface vtbl ={
   scheme_define,
   s_cons,
   s_immutable_cons,
@@ -4142,9 +3797,33 @@ static struct scheme_interface iface ={
   is_promise,
   is_environment,
   is_immutable,
-  setimmutable
+  setimmutable,
+
+  scheme_load_file,
+  scheme_load_string
 };
 #endif
+
+scheme *scheme_init_new() {
+  scheme *sc=(scheme*)malloc(sizeof(scheme));
+  if(!scheme_init(sc)) {
+    free(sc);
+    return 0;
+  } else {
+    return sc;
+  }
+}
+
+scheme *scheme_init_new_custom_alloc(func_alloc malloc, func_dealloc free) {
+  scheme *sc=(scheme*)malloc(sizeof(scheme));
+  if(!scheme_init_custom_alloc(sc,malloc,free)) {
+    free(sc);
+    return 0;
+  } else {
+    return sc;
+  }
+}
+
 
 int scheme_init(scheme *sc) {
  return scheme_init_custom_alloc(sc,malloc,free);
@@ -4160,7 +3839,7 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   num_one.value.ivalue=1;
 
 #if USE_INTERFACE
-  sc->interface=&iface;
+  sc->vptr=&vtbl;
 #endif
   sc->gensym_cnt=0;
   sc->malloc=malloc;
@@ -4168,8 +3847,8 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   sc->last_cell_seg = -1;
   sc->sink = &sc->_sink;
   sc->NIL = &sc->_NIL;
-  sc->T = &sc->_T;
-  sc->F = &sc->_F;
+  sc->T = &sc->_HASHT;
+  sc->F = &sc->_HASHF;
   sc->EOF_OBJ=&sc->_EOF_OBJ;
   sc->oblist = &sc->_NIL;
   sc->free_cell = &sc->_NIL;
@@ -4316,14 +3995,14 @@ void scheme_load_file(scheme *sc, FILE *fin) {
   }
 }
 
-void scheme_load_string(scheme *sc, char *cmd) {
+void scheme_load_string(scheme *sc, const char *cmd) {
   sc->dump = sc->NIL;
   sc->envir = sc->global_env;
   sc->file_i=0;
   sc->load_stack[0].kind=port_input|port_string;
-  sc->load_stack[0].rep.string.start=cmd;
-  sc->load_stack[0].rep.string.past_the_end=cmd+strlen(cmd);
-  sc->load_stack[0].rep.string.curr=cmd;
+  sc->load_stack[0].rep.string.start=(char*)cmd; /* This func respects const */
+  sc->load_stack[0].rep.string.past_the_end=(char*)cmd+strlen(cmd);
+  sc->load_stack[0].rep.string.curr=(char*)cmd;
   sc->loadport=mk_port(sc,sc->load_stack);
   sc->retcode=0;
   sc->interactive_repl=0;
@@ -4359,6 +4038,15 @@ void scheme_apply0(scheme *sc, const char *procname) {
      Eval_Cycle(sc,OP_EVAL);
      }
 
+void scheme_call(scheme *sc, pointer func, pointer args) { 
+   sc->dump = sc->NIL; 
+   sc->envir = sc->global_env; 
+   sc->args = args; 
+   sc->code = func; 
+   sc->interactive_repl =0; 
+   sc->retcode = 0; 
+   Eval_Cycle(sc, OP_APPLY); 
+} 
 #endif
 
 /* ========== Main ========== */
