@@ -1,7 +1,7 @@
 
 
 
-                       TinySCHEME Version 1.19
+                       TinySCHEME Version 1.20
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -12,6 +12,7 @@ Please read accompanying file license.txt.
 
      This Scheme interpreter is based on MiniSCHEME version 0.85k4
      (see miniscm.tar.gz in the Scheme Repository)
+     Original credits at end of file.
 
      D. Souflis (dsouflis@acm.org)
 
@@ -36,8 +37,10 @@ Please read accompanying file license.txt.
      Known bugs
      ----------
 
-     SLIB tests crash... One of the problems is the method used for
-     reading vector literals, which is not correct.
+     SCM tests reveal a memory allocation error, which has to be fixed.
+     It probably has to do with vectors, so be prepared to do without
+     them if need be.
+
 
      Things that keep missing, or that need fixing
      ---------------------------------------------
@@ -139,6 +142,12 @@ Please read accompanying file license.txt.
           Fixed some glitches of the new type-checking scheme. Fixed erroneous
           (append '() 'a) behavior. Will continue with r4rstest.scm to
           fix errors.
+     Version 1.20
+          Tracing has been added. The toplevel loop has been slightly
+	  rearranged. Backquote reading for vector templates has been
+	  sanitized. Symbol interning is now correct. Arithmetic functions
+	  have been corrected. APPLY, MAP, FOR-EACH, numeric comparison
+	  functions fixed. String reader/writer understands \xAA notation.
           
      Scheme Reference
      ----------------
@@ -185,11 +194,14 @@ Please read accompanying file license.txt.
      Stops the interpreter and sets the 'retcode' internal field (defaults
      to 0). When standalone, 'retcode' is returned as exit code to the OS.
 
+     (tracing <num>)
+     1, turns on tracing. 0 turns it off. (Only when USE_TRACING is 1).
+
           Mathematical functions
      Since rationals and complexes are absent, the respective functions
      are also missing.
      Supported: exp, log, sin, cos, tan, asin, acos, atan, floor, ceiling,
-     trunc, round and also sqrt (not in R5RS) and expt (IEEE) when USE_MATH=1.
+     trunc, round and also sqrt and expt when USE_MATH=1.
      Number-theoretical quotient, remainder and modulo, gcd, lcm.
      Library: exact?, inexact?, odd?, even?, zero?, positive?, negative?,
      exact->inexact. inexact->exact is a core function.
@@ -214,15 +226,16 @@ Please read accompanying file license.txt.
 
           Literals
      String literals can contain escaped quotes \" as usual, but also
-     \n, \r and \t. Note also that it is possible to include literal
-     newlines in string literals, e.g.
+     \n, \r, \t and \xDD (hex representations). Note also that it is 
+     possible to include literal newlines in string literals, e.g.
 
           (define s "String with newline here
           and here
           that can function like a HERE-string")
 
      Character literals contain #\space and #\newline and are supplemented
-     with #\return and #\tab, with obvious meanings.
+     with #\return and #\tab, with obvious meanings. Hex character
+     representations are allowed (e.g. #\x20 is #\space).
      When USE_ASCII_NAMES is defined, various control characters can be
      refered to by their ASCII name.
      0	     #\nul	       17       #\dc1
@@ -457,6 +470,9 @@ Please read accompanying file license.txt.
      To force system errors through user-defined error handling.
      (see "Error handling")
 
+     USE_TRACING
+     To enable use of TRACING.
+
      USE_VERBATIM
      Enable verbatim comments. (see "Verbatim comments")
 
@@ -476,6 +492,10 @@ Please read accompanying file license.txt.
      Enables dynamically loaded routines. If you define this symbol, you
      should also include dynload.c in your compile.
      
+     USE_NO_FEATURES
+     Shortcut to disable USE_MATH, USE_CHAR_CLASSIFIERS, USE_ASCII_NAMES,
+     USE_STRING_PORTS, USE_ERROR_HOOK, USE_TRACING, USE_COLON_HOOK,
+     USE_VERBATIM ,USE_DL.
 
      Build instructions
      ------------------
@@ -593,10 +613,10 @@ Please read accompanying file license.txt.
      looked around for a LISP interpreter, the next thing I knew was easy to
      implement. Alas, the LeLisp I knew from my days in UPMC (Universite Pierre
      et Marie Curie) had given way to Common Lisp, a megalith of a language!
-     But then my search lead me to Scheme, a language I knew was very orthogonal
-     and clean. When I found Mini-Scheme, a single C file of some 2400 loc, I fell
-     in love with it! What if it lacked floating-point numbers and strings!
-     The rest, as they say, is history.
+     Then my search lead me to Scheme, a language I knew was very orthogonal
+     and clean. When I found Mini-Scheme, a single C file of some 2400 loc, I 
+     fell in love with it! What if it lacked floating-point numbers and 
+     strings! The rest, as they say, is history.
      
      Below  are the original credits. Don't email Akira KIDA, the address has
      changed.
