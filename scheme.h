@@ -14,6 +14,20 @@
 
 #ifndef _MSC_VER
 # define USE_STRCASECMP 1
+# define USE_STRLWR 1
+# define STDIO_ADDS_CR 1
+#endif
+
+#if USE_NO_FEATURES
+# define USE_MATH 0
+# define USE_CHAR_CLASSIFIERS 0
+# define USE_ASCII_NAMES 0
+# define USE_STRING_PORTS 0
+# define USE_ERROR_HOOK 0
+# define USE_TRACING 0
+# define USE_COLON_HOOK 0
+# define USE_VERBATIM 0
+# define USE_DL 0
 #endif
 
 #ifndef USE_MATH         /* If math support is needed */
@@ -32,6 +46,10 @@
 # define USE_STRING_PORTS 1
 #endif
 
+#ifndef USE_TRACING
+# define USE_TRACING 1
+#endif
+
 /* To force system errors through user-defined error handling (see *error-hook*) */
 #ifndef USE_ERROR_HOOK
 # define USE_ERROR_HOOK 1
@@ -47,6 +65,10 @@
 
 #ifndef USE_STRCASECMP   /* stricmp for Unix */
 # define USE_STRCASECMP 0
+#endif
+
+#ifndef USE_STRLWR
+# define USE_STRLWR 1
 #endif
 
 #ifndef STDIO_ADDS_CR    /* Define if DOS/Windows */
@@ -126,6 +148,7 @@ func_dealloc free;
 
 /* return code */
 int retcode;
+int tracing;
 
 #define CELL_SEGSIZE    5000  /* # of cells in one segment */
 #define CELL_NSEGMENT   100   /* # of segments for cells */
@@ -276,6 +299,7 @@ pointer (*mk_vector)(scheme *sc, int len);
 void (*assign_foreign)(scheme *sc, foreign_func, char *name);
 void (*assign_foreign_env)(scheme *sc, pointer env, foreign_func func, char *name);
 void (*putstr)(scheme *sc, const char *s);
+void (*putcharacter)(scheme *sc, int c);
 
 int (*is_string)(pointer p);
 char *(*string_value)(pointer p);

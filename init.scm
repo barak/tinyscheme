@@ -1,4 +1,4 @@
-;    Initialization file for TinySCHEME 1.19 
+;    Initialization file for TinySCHEME 1.20 
 
 ; Per R5RS, up to four deep compositions should be defined
 (define (caar x) (car (car x)))
@@ -47,13 +47,13 @@
 ; Utilities for math. Notice that inexact->exact is primitive,
 ; but exact->inexact is not.
 (define exact? integer?)
-(define inexact? real?)
+(define (inexact? x) (and (real? x) (not (integer? x))))
 (define (even? n) (= (remainder n 2) 0))
 (define (odd? n) (not (= (remainder n 2) 0)))
 (define (zero? n) (= n 0))
-(define (positive? n) (>= n 0))
-(define (negative? n) (<= n 0))
-(define complex? #f)
+(define (positive? n) (> n 0))
+(define (negative? n) (< n 0))
+(define complex? number?)
 (define rational? real?)
 (define (abs n) (if (>= n 0) n (- n)))
 (define (exact->inexact n) (* n 1.0))
@@ -65,9 +65,11 @@
 (define (succ x) (+ x 1))
 (define (pred x) (- x 1))
 (define (gcd a b)
-     (if (= b 0)
-          a
-          (gcd b (remainder a b))))
+  (let ((aa (abs a))
+	(bb (abs b)))
+     (if (= bb 0)
+          aa
+          (gcd bb (remainder aa bb)))))
 (define (lcm a b)
      (if (or (= a 0) (= b 0))
           0
@@ -137,13 +139,14 @@
 (define (char-ci<=? a b) (char-ci-cmp? <= a b))
 (define (char-ci>=? a b) (char-ci-cmp? >= a b))
 
+; Note the trick of returning (cmp x y)
 (define (string-cmp? chcmp cmp a b)
      (let ((na (string-length a)) (nb (string-length b)))
           (if (<> na nb)
-               #f
+               (cmp na nb)
                (let loop ((i 0))
                     (if (= i na)
-                         #t
+                         (if (= na 0) (cmp 0 0) #t)
                          (and (chcmp cmp (string-ref a i) (string-ref b i))
                               (loop (succ i))))))))
 
@@ -166,14 +169,38 @@
           x
           (foldr f (f x (car lst)) (cdr lst))))
 
-(define (map proc list)
-    (if (pair? list)
-        (cons (proc (car list)) (map proc (cdr list)))))
+(define (unzip1-with-cdr . lists)
+  (unzip1-with-cdr-iterative lists '() '()))
 
-(define (for-each proc list)
-    (if (pair? list)
-        (begin (proc (car list)) (for-each proc (cdr list)))
-        #t ))
+(define (unzip1-with-cdr-iterative lists cars cdrs)
+  (if (null? lists)
+      (cons cars cdrs)
+      (let ((car1 (caar lists))
+	    (cdr1 (cdar lists)))
+	(unzip1-with-cdr-iterative 
+	 (cdr lists) 
+	 (append cars (list car1))
+	 (append cdrs (list cdr1))))))
+
+(define (map proc . lists)
+  (if (null? lists)
+      (apply proc)
+      (if (null? (car lists))
+	  '()
+	  (let* ((unz (apply unzip1-with-cdr lists))
+		 (cars (car unz))
+		 (cdrs (cdr unz)))
+	    (cons (apply proc cars) (apply map (cons proc cdrs)))))))
+
+(define (for-each proc . lists)
+  (if (null? lists)
+      (apply proc)
+      (if (null? (car lists))
+	  #t
+	  (let* ((unz (apply unzip1-with-cdr lists))
+		 (cars (car unz))
+		 (cdrs (cdr unz)))
+	    (apply proc cars) (apply map (cons proc cdrs))))))
 
 (define (list-tail x k)
     (if (zero? k)
@@ -500,3 +527,36 @@
                     (* (quotient *seed* q) r)))
           (if (< *seed* 0) (set! *seed* (+ *seed* m)))
           *seed*))
+;; SRFI-0 
+;; COND-EXPAND
+;; Implemented as a macro
+(define *features* '(srfi-0))
+
+(define-macro (cond-expand . cond-action-list)
+  (cond-expand-runtime cond-action-list))
+
+(define (cond-expand-runtime cond-action-list)
+  (if (null? cond-action-list)
+      #t
+      (if (cond-eval (caar cond-action-list))
+          `(begin ,@(cdar cond-action-list))
+          (cond-expand-runtime (cdr cond-action-list)))))
+
+(define (cond-eval-and cond-list)
+  (foldr (lambda (x y) (and (cond-eval x) (cond-eval y))) #t cond-list))
+
+(define (cond-eval-or cond-list)
+  (foldr (lambda (x y) (or (cond-eval x) (cond-eval y))) #f cond-list))
+
+(define (cond-eval condition)
+  (cond ((symbol? condition)
+	 (if (member condition *features*) #t #f))
+	((eq? condition #t) #t)
+	((eq? condition #f) #f)
+	(else (case (car condition)
+		((and) (cond-eval-and (cdr condition)))
+		((or) (cond-eval-or (cdr condition)))
+		((not) (if (not (null? (cddr condition)))
+			   (error "cond-expand : 'not' takes 1 argument")
+			   (not (cond-eval (cadr condition)))))
+		(else (error "cond-expand : unknown operator" (car condition)))))))
