@@ -9,21 +9,41 @@
 # undef _T
 #endif
 
-#ifdef isnumber
-# undef isnumber
+/*
+ * Default values for #define'd symbols
+ */
+#ifndef USE_VERBOSE_GC   /* 1 you want verbose GC */
+# define USE_VERBOSE_GC 0
 #endif
 
-/*
- * Define or undefine following symbols as you need.
- */
-/* #define VERBOSE     /* define this if you want verbose GC */
-/* #define STANDALONE  /* If used as standalone interpreter */
-#define USE_MATH    /* If math support is needed */
-#define USE_ERROR_HOOK   /* To force system errors through user-defined
-                                   error handling (see *error-hook*) */
-#define USE_COLON_HOOK   /* Enable qualified qualifier */
-#define USE_VERBATIM     /* Enable verbatim comments (for HTML) */
-/* #define USE_STRCASECMP /* stricmp for Unix */
+#ifndef STANDALONE       /* If used as standalone interpreter */
+# define STANDALONE 0
+#endif
+
+#ifndef USE_MATH         /* If math support is needed */
+# define USE_MATH 1
+#endif
+
+/* To force system errors through user-defined error handling (see *error-hook*) */
+#ifndef USE_ERROR_HOOK
+# define USE_ERROR_HOOK 1
+#endif
+
+#ifndef USE_COLON_HOOK   /* Enable qualified qualifier */
+# define USE_COLON_HOOK 1
+#endif
+
+#ifndef USE_VERBATIM     /* Enable verbatim comments (for HTML) */
+# define USE_VERBATIM 1
+#endif
+
+#ifndef USE_STRCASECMP   /* stricmp for Unix */
+# define USE_STRCASECMP 0
+#endif
+
+#ifndef STDIO_ADDS_CR    /* Define if DOS/Windows */
+# define STDIO_ADDS_CR 0
+#endif
 
 typedef struct scheme scheme;
 typedef struct cell *pointer;
@@ -180,44 +200,44 @@ pointer mk_string(scheme *sc, const char *str);
 pointer mk_character(scheme *sc, int c);
 void assign_foreign(scheme *sc, foreign_func, char *name);
 
-int isstring(pointer p);
+int is_string(pointer p);
 char *string_value(pointer p);
-int isnumber(pointer p);
+int is_number(pointer p);
 num nvalue(pointer p);
 long ivalue(pointer p);
 double rvalue(pointer p);
-int isinteger(pointer p);
-int isreal(pointer p);
-int ischaracter(pointer p);
+int is_integer(pointer p);
+int is_real(pointer p);
+int is_character(pointer p);
 long charvalue(pointer p);
 
-int isport(pointer p);
+int is_port(pointer p);
 
-int ispair(pointer p);
+int is_pair(pointer p);
 pointer pair_car(pointer p);
 pointer pair_cdr(pointer p);
 pointer set_car(pointer p, pointer q);
 pointer set_cdr(pointer p, pointer q);
 
-int issymbol(pointer p);
+int is_symbol(pointer p);
 char *symname(pointer p);
 int hasprop(pointer p);
 
-int issyntax(pointer p);
-int isproc(pointer p);
-int isforeign(pointer p);
+int is_syntax(pointer p);
+int is_proc(pointer p);
+int is_foreign(pointer p);
 char *syntaxname(pointer p);
-int isclosure(pointer p);
+int is_closure(pointer p);
 #ifdef USE_MACRO
-int ismacro(pointer p);
+int is_macro(pointer p);
 #endif
 pointer closure_code(pointer p);
 pointer closure_env(pointer p);
 
-int iscontinuation(pointer p);
-int ispromise(pointer p);
-int isenvironment(pointer p);
-int isimmutable(pointer p);
+int is_continuation(pointer p);
+int is_promise(pointer p);
+int is_environment(pointer p);
+int is_immutable(pointer p);
 
 #define pair_caar(p)          pair_car(pair_car(p))
 #define pair_cadr(p)          pair_car(pair_cdr(p))

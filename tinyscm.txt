@@ -4,7 +4,7 @@
                                    TinySCHEME
 
 -------------------------------------------------------------------------------
-     Version 1.10
+     Version 1.12
 
      This Scheme interpreter is based on MiniSCHEME version 0.85k4
      (see miniscm.tar.gz in the Scheme Repository)
@@ -70,6 +70,13 @@
      (see "Reader extensions")
 
 
+     Known bugs
+     ----------
+
+     I know of code using vectors that get messed-up. I haven't gotten around
+     to checking it yet.
+
+
      Things that keep missing, or that need fixing
      ---------------------------------------------
 
@@ -120,13 +127,25 @@
           Removed bug when READ met EOF. lcm.
      Version 1.10
           Another bug when file ends with comment!
+          Added DEFINE-MACRO in init.scm, courtesy of Andy Gaynor.
+     Version 1.11
+          BSDI defines isnumber... changed all similar functions to is_*
+          EXPT now has correct definition. Added FLOOR,CEILING,TRUNCATE
+          and ROUND, courtesy of Bengt Kleberg. Preprocessor symbols now
+          have values 1 or 0, and can be set as compiler defines (proposed
+          by Andy Ganor *months* ago). 'prompt' and 'InitFile' can now be
+          defined during compilation, too.
+     Version 1.12
+          Cis* incorrectly called isalpha() instead of isascii()
+          Added USE_CHAR_CLASSIFIERS
+
 
      Scheme Reference
      ----------------
 
-     Not yet finished, please refer to the code and "init.scm", since
-     some are library functions.
-     Refer to the MiniSCHEME readme, too.
+     If something seems to be missing, please refer to the code and
+     "init.scm", since some are library functions.  Refer to the MiniSCHEME
+     readme as a last resort.
 
           Environments
      (interaction-environment)
@@ -169,8 +188,8 @@
           Mathematical functions
      Since rationals and complexes are absent, the respective functions
      are also missing.
-     Supported: exp, log, sin, cos, tan, asin, acos, atan and also
-     sqrt (not in R5RS) and expt (IEEE) when USE_MATH is defined.
+     Supported: exp, log, sin, cos, tan, asin, acos, atan, floor, ceiling,
+     trunc, round and also sqrt (not in R5RS) and expt (IEEE) when USE_MATH=1.
      Number-theoretical quotient, remainder and modulo, gcd, lcm.
      Library: exact?, inexact?, odd?, even?, zero?, positive?, negative?,
      exact->inexact. inexact->exact is a core function.
@@ -304,7 +323,7 @@
           (write (+ 3 5))
           |<br></body></html>
 
-     Verbatim comments must be enabled by defining USE_VERBATIM
+     Verbatim comments must be enabled by defining USE_VERBATIM=1
 
 
      Programmer's Reference
@@ -373,14 +392,20 @@
      Customizing
      -----------
 
-     The following symbols are defined (or commented out) in scheme.h.
-     Change scheme.h appropriately, or use the -D flag of cc.
+     The following symbols are defined to default values in scheme.h.
+     Use the -D flag of cc to set to either 1 or 0.
 
      STANDALONE
      Define this to include "main" so as to produce standalone interpreter.
 
      USE_MATH
      Includes math routines.
+
+     USE_CHAR_CLASSIFIERS
+     Includes character classifier procedures
+
+     USE_STRING_PORTS
+     Enables string ports
 
      USE_ERROR_HOOK
      To force system errors through user-defined error handling.
@@ -391,15 +416,15 @@
 
      USE_COLON_HOOK
      Enable use of qualified identifiers. (see "Colon Qualifiers - Packages")
-     Undefining this has the rather drastic consequence that any code using
+     Defining this as 0 has the rather drastic consequence that any code using
      packages will stop working, and will have to be modified. It should only
      be used if you *absolutely* need to use '::' in identifiers.
 
      USE_STRCASECMP
-     Defines stricmp as strcasecmp, for Unix
+     Defines stricmp as strcasecmp, for Unix.
 
-     STDIO_XLATE
-     Defines that stdio translates "\n" to "\r\n". For DOS/Windows.
+     STDIO_ADDS_CR
+     Informs TinyScheme that stdio translates "\n" to "\r\n". For DOS/Windows.
 
 
      Build instructions
@@ -464,7 +489,7 @@
      Colon Qualifiers - Packages
      ---------------------------
 
-     When USE_COLON_HOOK is defined:
+     When USE_COLON_HOOK=1:
      The lexer now recognizes the construction <qualifier>::<symbol> and
      transforms it in the following manner (T is the transformation function):
 
