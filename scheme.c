@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 3 1
+/* T I N Y S C H E M E    1 . 3 2
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -53,7 +53,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.30"
+#define banner "TinyScheme 1.32"
 
 #include <string.h>
 #include <stdlib.h>
@@ -358,6 +358,7 @@ static pointer reverse_in_place(scheme *sc, pointer term, pointer list);
 static pointer append(scheme *sc, pointer a, pointer b);
 static int list_length(scheme *sc, pointer a);
 static int eqv(pointer a, pointer b);
+static void dump_stack_mark(scheme *);
 static pointer opexe_0(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_1(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_2(scheme *sc, enum scheme_opcodes op);
@@ -708,6 +709,104 @@ pointer _cons(scheme *sc, pointer a, pointer b, int immutable) {
   return (x);
 }
 
+/* ========== oblist implementation  ========== */ 
+
+#ifndef USE_OBJECT_LIST 
+
+static int hash_fn(const char *key, int table_size); 
+
+static pointer oblist_initial_value(scheme *sc) 
+{ 
+  return mk_vector(sc, 461); /* probably should be bigger */ 
+} 
+
+/* returns the new symbol */ 
+static pointer oblist_add_by_name(scheme *sc, const char *name) 
+{ 
+  pointer x; 
+  int location; 
+
+  x = immutable_cons(sc, mk_string(sc, name), sc->NIL); 
+  typeflag(x) = T_SYMBOL; 
+  setimmutable(car(x)); 
+
+  location = hash_fn(name, ivalue_unchecked(sc->oblist)); 
+  set_vector_elem(sc->oblist, location, 
+                  immutable_cons(sc, x, vector_elem(sc->oblist, location))); 
+  return x; 
+} 
+
+static INLINE pointer oblist_find_by_name(scheme *sc, const char *name) 
+{ 
+  int location; 
+  pointer x; 
+  char *s; 
+
+  location = hash_fn(name, ivalue_unchecked(sc->oblist)); 
+  for (x = vector_elem(sc->oblist, location); x != sc->NIL; x = cdr(x)) { 
+    s = symname(car(x)); 
+    /* case-insensitive, per R5RS section 2. */ 
+    if(stricmp(name, s) == 0) { 
+      return car(x); 
+    } 
+  } 
+  return sc->NIL; 
+} 
+
+static pointer oblist_all_symbols(scheme *sc) 
+{ 
+  int i; 
+  pointer x; 
+  pointer ob_list = sc->NIL; 
+
+  for (i = 0; i < ivalue_unchecked(sc->oblist); i++) { 
+    for (x  = vector_elem(sc->oblist, i); x != sc->NIL; x = cdr(x)) { 
+      ob_list = cons(sc, x, ob_list); 
+    } 
+  } 
+  return ob_list; 
+} 
+
+#else 
+
+static pointer oblist_initial_value(scheme *sc) 
+{ 
+  return sc->NIL; 
+} 
+
+static INLINE pointer oblist_find_by_name(scheme *sc, const char *name) 
+{ 
+     pointer x; 
+     char    *s; 
+
+     for (x = sc->oblist; x != sc->NIL; x = cdr(x)) { 
+        s = symname(car(x)); 
+        /* case-insensitive, per R5RS section 2. */ 
+        if(stricmp(name, s) == 0) { 
+          return car(x); 
+        } 
+     } 
+     return sc->NIL; 
+} 
+
+/* returns the new symbol */ 
+static pointer oblist_add_by_name(scheme *sc, const char *name) 
+{ 
+  pointer x; 
+
+  x = immutable_cons(sc, mk_string(sc, name), sc->NIL); 
+  typeflag(x) = T_SYMBOL; 
+  setimmutable(car(x)); 
+  sc->oblist = immutable_cons(sc, x, sc->oblist); 
+  return x; 
+} 
+static pointer oblist_all_symbols(scheme *sc) 
+{ 
+  return sc->oblist; 
+} 
+
+#endif 
+
 static pointer mk_port(scheme *sc, port *p) {
   pointer x = get_cell(sc, sc->NIL, sc->NIL);
   
@@ -840,57 +939,39 @@ INTERFACE static pointer set_vector_elem(pointer vec, int ielem, pointer a) {
 }
 
 /* get new symbol */
-INTERFACE pointer mk_symbol(scheme *sc, const char *name) {
-     pointer x;
-     char    *s;
+INTERFACE pointer mk_symbol(scheme *sc, const char *name) { 
+     pointer x; 
 
-     /* first check oblist */
-     for (x = sc->oblist; x != sc->NIL; x = cdr(x)) {
-        s = symname(car(x));
-          if(strcmp(name, s)==0) {
-               break;
-          }
-     }
+     /* first check oblist */ 
+     x = oblist_find_by_name(sc, name); 
+     if (x != sc->NIL) { 
+          return (x); 
+     } else { 
+          x = oblist_add_by_name(sc, name); 
+          return (x); 
+     } 
+} 
 
-     if (x != sc->NIL) {
-          return (car(x));
-     } else {
-          x = immutable_cons(sc, mk_string(sc, name), sc->NIL);
-          typeflag(x) = T_SYMBOL;
-          setimmutable(car(x));
-          sc->oblist = immutable_cons(sc, x, sc->oblist);
-          return (x);
-     }
-}
+INTERFACE pointer gensym(scheme *sc) { 
+     pointer x; 
+     char name[40]; 
 
-INTERFACE pointer gensym(scheme *sc) {
-     pointer x;
-     char name[40];
+     for(; sc->gensym_cnt<LONG_MAX; sc->gensym_cnt++) { 
+          sprintf(name,"gensym-%ld",sc->gensym_cnt); 
 
-     for(; sc->gensym_cnt<LONG_MAX; sc->gensym_cnt++) {
-          sprintf(name,"gensym-%ld",sc->gensym_cnt);
+          /* first check oblist */ 
+          x = oblist_find_by_name(sc, name); 
 
-          /* first check oblist */
-          for (x = sc->oblist; x != sc->NIL; x = cdr(x)) {
-               if (!stricmp(name, symname(car(x)))) { /* case-insens. R5RS 6.3.3 */
-                    break;
-               }
-          }
+          if (x != sc->NIL) { 
+               continue; 
+          } else { 
+               x = oblist_add_by_name(sc, name); 
+               return (x); 
+          } 
+     } 
 
-          if (x != sc->NIL) {
-               continue;
-          } else {
-               x = immutable_cons(sc, mk_string(sc, name), sc->NIL);
-               typeflag(x) = T_SYMBOL;
-               setimmutable(x);
-               setimmutable(car(x));
-               sc->oblist = immutable_cons(sc, x, sc->oblist);
-               return (x);
-          }
-     }
-
-     return sc->NIL;
-}
+     return sc->NIL; 
+} 
 
 /* make symbol or number atom from string */
 static pointer mk_atom(scheme *sc, char *q) {
@@ -1016,7 +1097,8 @@ static pointer mk_sharp_const(scheme *sc, char *name) {
 
 /*--
  *  We use algorithm E (Knuth, The Art of Computer Programming Vol.1,
- *  sec.3.5) for marking.
+ *  sec. 2.3.5), the Schorr-Deutsch-Waite link-inversion algorithm, 
+ *  for marking. 
  */
 static void mark(pointer a) {
      pointer t, q, p;
@@ -1083,7 +1165,7 @@ static void gc(scheme *sc, pointer a, pointer b) {
   mark(sc->args);
   mark(sc->envir);
   mark(sc->code);
-  mark(sc->dump);
+  dump_stack_mark(sc); 
   mark(sc->value);
   mark(sc->inport);
   mark(sc->save_inport);
@@ -1110,12 +1192,14 @@ static void gc(scheme *sc, pointer a, pointer b) {
 	clrmark(p);
       } else {
 	/* reclaim cell */
-	finalize_cell(sc, p);
-	typeflag(p) = 0;
-	cdr(p) = sc->free_cell;
-	car(p) = sc->NIL;
-	sc->free_cell = p;
-	++sc->fcells;
+        if (typeflag(p) != 0) { 
+          finalize_cell(sc, p); 
+          typeflag(p) = 0; 
+          ++sc->fcells; 
+          car(p) = sc->NIL; 
+        } 
+        cdr(p) = sc->free_cell; 
+        sc->free_cell = p; 
       }
     }
   }
@@ -1343,7 +1427,7 @@ INTERFACE void putcharacter(scheme *sc, int c) {
   }
 }
 
-/* read chacters up to delimiter, but cater to character constants */
+/* read characters up to delimiter, but cater to character constants */
 static char   *readstr_upto(scheme *sc, char *delim) {
   char   *p = sc->strbuff;
 
@@ -1768,28 +1852,149 @@ static int eqv(pointer a, pointer b) {
 #define is_true(p)       ((p) != sc->F)
 #define is_false(p)      ((p) == sc->F)
 
-/* ========== Evaluation Cycle ========== */
+/* ========== Environment implementation  ========== */ 
 
-static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl, int all) {
-    pointer x,y;
-    for (x = env; x != sc->NIL; x = cdr(x)) {
-         for (y = car(x); y != sc->NIL; y = cdr(y)) {
-              if (caar(y) == hdl) {
-                   break;
-              }
-         }
-         if (y != sc->NIL) {
-              break;
-         }
-	 if(!all) {
-	   return sc->NIL;
-	 }
-    }
-    if (x != sc->NIL) {
-          return car(y);
-    }
-    return sc->NIL;
-}
+#if !defined(USE_ALIST_ENV) || !defined(USE_OBJECT_LIST) 
+
+static int hash_fn(const char *key, int table_size) 
+{ 
+  unsigned int hashed = 0; 
+  const char *c; 
+  int bits_per_int = sizeof(unsigned int)*8; 
+
+  for (c = key; *c; c++) { 
+    /* letters have about 5 bits in them */ 
+    hashed = (hashed<<5) | (hashed>>(bits_per_int-5)); 
+    hashed ^= *c; 
+  } 
+  return hashed % table_size; 
+} 
+#endif 
+
+#ifndef USE_ALIST_ENV 
+
+/* 
+ * In this implementation, each frame of the environment may be 
+ * a hash table: a vector of alists hashed by variable name. 
+ * In practice, we use a vector only for the initial frame; 
+ * subsequent frames are too small and transient for the lookup 
+ * speed to out-weigh the cost of making a new vector. 
+ */ 
+
+static void new_frame_in_env(scheme *sc, pointer old_env) 
+{ 
+  pointer new_frame; 
+
+  /* The interaction-environment has about 300 variables in it. */ 
+  if (old_env == sc->NIL) { 
+    new_frame = mk_vector(sc, 461); 
+  } else { 
+    new_frame = sc->NIL; 
+  } 
+
+  sc->envir = immutable_cons(sc, new_frame, old_env); 
+  setenvironment(sc->envir); 
+} 
+
+static INLINE void new_slot_spec_in_env(scheme *sc, pointer env, 
+                                        pointer variable, pointer value) 
+{ 
+  pointer slot = immutable_cons(sc, variable, value); 
+
+  if (is_vector(car(env))) { 
+    int location = hash_fn(symname(variable), ivalue_unchecked(car(env))); 
+
+    set_vector_elem(car(env), location, 
+                    immutable_cons(sc, slot, vector_elem(car(env), location))); 
+  } else { 
+    car(env) = immutable_cons(sc, slot, car(env)); 
+  } 
+} 
+
+static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl, int all) 
+{ 
+  pointer x,y; 
+  int location; 
+
+  for (x = env; x != sc->NIL; x = cdr(x)) { 
+    if (is_vector(car(x))) { 
+      location = hash_fn(symname(hdl), ivalue_unchecked(car(x))); 
+      y = vector_elem(car(x), location); 
+    } else { 
+      y = car(x); 
+    } 
+    for ( ; y != sc->NIL; y = cdr(y)) { 
+              if (caar(y) == hdl) { 
+                   break; 
+              } 
+         } 
+         if (y != sc->NIL) { 
+              break; 
+         } 
+         if(!all) { 
+           return sc->NIL; 
+         } 
+    } 
+    if (x != sc->NIL) { 
+          return car(y); 
+    } 
+    return sc->NIL; 
+} 
+
+#else /* USE_ALIST_ENV */ 
+
+static INLINE void new_frame_in_env(scheme *sc, pointer old_env) 
+{ 
+  sc->envir = immutable_cons(sc, sc->NIL, old_env); 
+  setenvironment(sc->envir); 
+} 
+
+static INLINE void new_slot_spec_in_env(scheme *sc, pointer env, 
+                                        pointer variable, pointer value) 
+{ 
+  car(env) = immutable_cons(sc, immutable_cons(sc, variable, value), car(env)); 
+} 
+
+static pointer find_slot_in_env(scheme *sc, pointer env, pointer hdl, int all) 
+{ 
+    pointer x,y; 
+    for (x = env; x != sc->NIL; x = cdr(x)) { 
+         for (y = car(x); y != sc->NIL; y = cdr(y)) { 
+              if (caar(y) == hdl) { 
+                   break; 
+              } 
+         } 
+         if (y != sc->NIL) { 
+              break; 
+         } 
+         if(!all) { 
+           return sc->NIL; 
+         } 
+    } 
+    if (x != sc->NIL) { 
+          return car(y); 
+    } 
+    return sc->NIL; 
+} 
+
+#endif /* USE_ALIST_ENV else */ 
+
+static INLINE void new_slot_in_env(scheme *sc, pointer variable, pointer value) 
+{ 
+  new_slot_spec_in_env(sc, sc->envir, variable, value); 
+} 
+
+static INLINE void set_slot_in_env(scheme *sc, pointer slot, pointer value) 
+{ 
+  cdr(slot) = value; 
+} 
+
+static INLINE pointer slot_value_in_env(pointer slot) 
+{ 
+  return cdr(slot); 
+} 
+
+/* ========== Evaluation Cycle ========== */
 
 
 static pointer _Error_1(scheme *sc, const char *s, pointer a) {
@@ -1806,7 +2011,7 @@ static pointer _Error_1(scheme *sc, const char *s, pointer a) {
          }
          sc->code = cons(sc, mk_string(sc, (s)), sc->code);
          setimmutable(car(sc->code));
-         sc->code = cons(sc, cdr(x), sc->code);
+         sc->code = cons(sc, slot_value_in_env(x), sc->code); 
          sc->op = (int)OP_EVAL;
          return sc->T;
     }
@@ -1832,23 +2037,124 @@ static pointer _Error_1(scheme *sc, const char *s, pointer a) {
     sc->op = (int)(a);                                      \
     return sc->T; END
 
-static pointer _s_return(scheme *sc, pointer a) {
-    sc->value = (a);
-    if(sc->dump==sc->NIL) return sc->NIL;
-    sc->op = ivalue(car(sc->dump));
-    sc->args = cadr(sc->dump);
-    sc->envir = caddr(sc->dump);
-    sc->code = cadddr(sc->dump);
-    sc->dump = cddddr(sc->dump);
-    return sc->T;
-}
-#define s_return(sc,a) return _s_return(sc,a)
+#define s_return(sc,a) return _s_return(sc,a) 
 
-static void s_save(scheme *sc, enum scheme_opcodes op, pointer args, pointer code) {
-    sc->dump = cons(sc, sc->envir, cons(sc, (code), sc->dump));
-    sc->dump = cons(sc, (args), sc->dump);
-    sc->dump = cons(sc, mk_integer(sc, (long)(op)), sc->dump);
-}
+#ifndef USE_SCHEME_STACK 
+
+/* this structure holds all the interpreter's registers */ 
+struct dump_stack_frame { 
+  enum scheme_opcodes op; 
+  pointer args; 
+  pointer envir; 
+  pointer code; 
+}; 
+
+#define STACK_GROWTH 3 
+
+static void s_save(scheme *sc, enum scheme_opcodes op, pointer args, pointer code) 
+{ 
+  int nframes = (int)sc->dump; 
+  struct dump_stack_frame *next_frame; 
+
+  /* enough room for the next frame? */ 
+  if (nframes >= sc->dump_size) { 
+    sc->dump_size += STACK_GROWTH; 
+    /* alas there is no sc->realloc */ 
+    sc->dump_base = realloc(sc->dump_base, 
+                            sizeof(struct dump_stack_frame) * sc->dump_size); 
+  } 
+  next_frame = (struct dump_stack_frame *)sc->dump_base + nframes; 
+  next_frame->op = op; 
+  next_frame->args = args; 
+  next_frame->envir = sc->envir; 
+  next_frame->code = code; 
+  sc->dump = (pointer)(nframes+1); 
+} 
+
+static pointer _s_return(scheme *sc, pointer a) 
+{ 
+  int nframes = (int)sc->dump; 
+  struct dump_stack_frame *frame; 
+
+  sc->value = (a); 
+  if (nframes <= 0) { 
+    return sc->NIL; 
+  } 
+  nframes--; 
+  frame = (struct dump_stack_frame *)sc->dump_base + nframes; 
+  sc->op = frame->op; 
+  sc->args = frame->args; 
+  sc->envir = frame->envir; 
+  sc->code = frame->code; 
+  sc->dump = (pointer)nframes; 
+  return sc->T; 
+} 
+
+static INLINE void dump_stack_reset(scheme *sc) 
+{ 
+  /* in this implementation, sc->dump is the number of frames on the stack */ 
+  sc->dump = (pointer)0; 
+} 
+
+static INLINE void dump_stack_initialize(scheme *sc) 
+{ 
+  sc->dump_size = 0; 
+  sc->dump_base = NULL; 
+  dump_stack_reset(sc); 
+} 
+
+static void dump_stack_free(scheme *sc) 
+{ 
+  free(sc->dump_base); 
+  sc->dump_base = NULL; 
+  sc->dump = (pointer)0; 
+  sc->dump_size = 0; 
+} 
+
+static INLINE void dump_stack_mark(scheme *sc) 
+{ 
+  /* stack uses no Scheme objects in this implementation */ 
+} 
+
+#else 
+
+static INLINE void dump_stack_reset(scheme *sc) 
+{ 
+  sc->dump = sc->NIL; 
+} 
+
+static INLINE void dump_stack_initialize(scheme *sc) 
+{ 
+  dump_stack_reset(sc); 
+} 
+
+static void dump_stack_free(scheme *sc) 
+{ 
+  sc->dump = sc->NIL; 
+} 
+
+static pointer _s_return(scheme *sc, pointer a) { 
+    sc->value = (a); 
+    if(sc->dump==sc->NIL) return sc->NIL; 
+    sc->op = ivalue(car(sc->dump)); 
+    sc->args = cadr(sc->dump); 
+    sc->envir = caddr(sc->dump); 
+    sc->code = cadddr(sc->dump); 
+    sc->dump = cddddr(sc->dump); 
+    return sc->T; 
+} 
+
+static void s_save(scheme *sc, enum scheme_opcodes op, pointer args, pointer code) { 
+    sc->dump = cons(sc, sc->envir, cons(sc, (code), sc->dump)); 
+    sc->dump = cons(sc, (args), sc->dump); 
+    sc->dump = cons(sc, mk_integer(sc, (long)(op)), sc->dump); 
+} 
+
+static INLINE void dump_stack_mark(scheme *sc) 
+{ 
+  mark(sc->dump); 
+} 
+#endif 
 
 #define s_retbool(tf)    s_return(sc,(tf) ? sc->T : sc->F)
 
@@ -1871,7 +2177,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
                putstr(sc,"\n");
           }
           sc->nesting=0;
-          sc->dump = sc->NIL;
+          dump_stack_reset(sc); 
           sc->envir = sc->global_env;
 	  sc->save_inport=sc->inport;
           sc->inport = sc->loadport;
@@ -1903,7 +2209,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
      case OP_GENSYM:
           s_return(sc, gensym(sc));
 
-     case OP_VALUEPRINT: /* print evalution result */
+     case OP_VALUEPRINT: /* print evaluation result */
           /* OP_VALUEPRINT is always pushed, because when changing from
              non-interactive to interactive mode, it needs to be
              already on the stack */
@@ -1918,7 +2224,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
 	 s_return(sc,sc->value);
        }
 
-     case OP_EVAL:       /* main part of evalution */
+     case OP_EVAL:       /* main part of evaluation */
 #if USE_TRACING
        if(sc->tracing) {
 	 /*s_save(sc,OP_VALUEPRINT,sc->NIL,sc->NIL);*/
@@ -1927,15 +2233,15 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
 	 putstr(sc,"\nEval: ");
 	 s_goto(sc,OP_P0LIST);
        }
-       /* fallthrough */
+       /* fall through */
      case OP_REAL_EVAL:
 #endif
           if (is_symbol(sc->code)) {    /* symbol */
                x=find_slot_in_env(sc,sc->envir,sc->code,1);
                if (x != sc->NIL) {
-                    s_return(sc,cdr(x));
+                    s_return(sc,slot_value_in_env(x)); 
                } else {
-                    Error_1(sc,"unbound variable:", sc->code);
+                    Error_1(sc,"eval: unbound variable:", sc->code);
                }
           } else if (is_pair(sc->code)) {
                if (is_syntax(x = car(sc->code))) {     /* SYNTAX */
@@ -1970,7 +2276,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
                sc->args = sc->NIL;
                s_goto(sc,OP_EVAL);
           } else {  /* end */
-               sc->args = reverse(sc, sc->args);
+               sc->args = reverse_in_place(sc, sc->NIL, sc->args); 
                sc->code = car(sc->args);
                sc->args = cdr(sc->args);
                s_goto(sc,OP_APPLY);
@@ -1993,7 +2299,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
          putstr(sc,"\nApply to: ");
 	 s_goto(sc,OP_P0LIST);
        }
-       /* fallthrough */
+       /* fall through */
      case OP_REAL_APPLY:
 #endif
           if (is_proc(sc->code)) {
@@ -2005,14 +2311,13 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
 		     || is_promise(sc->code)) { /* CLOSURE */
 	    /* Should not accept promise */
                /* make environment */
-               sc->envir = immutable_cons(sc, sc->NIL, closure_env(sc->code));
-               setenvironment(sc->envir);
+               new_frame_in_env(sc, closure_env(sc->code)); 
                for (x = car(closure_code(sc->code)), y = sc->args;
                     is_pair(x); x = cdr(x), y = cdr(y)) {
                     if (y == sc->NIL) {
                          Error_0(sc,"not enough arguments");
                     } else {
-                         car(sc->envir) = immutable_cons(sc, immutable_cons(sc, car(x), car(y)), car(sc->envir));
+                         new_slot_in_env(sc, car(x), car(y)); 
                     }
                }
                if (x == sc->NIL) {
@@ -2022,9 +2327,9 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
                      * }
                      */
                } else if (is_symbol(x))
-                    car(sc->envir) = immutable_cons(sc, immutable_cons(sc, x, y), car(sc->envir));
+                    new_slot_in_env(sc, x, y); 
                else {
-                    Error_0(sc,"syntax error in closure");
+                    Error_1(sc,"syntax error in closure: not a symbol:", x); 
                }
                sc->code = cdr(closure_code(sc->code));
                sc->args = sc->NIL;
@@ -2076,9 +2381,9 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
      case OP_DEF1:  /* define */
        x=find_slot_in_env(sc,sc->envir,sc->code,0);
           if (x != sc->NIL) {
-               cdr(x) = sc->value;
+               set_slot_in_env(sc, x, sc->value); 
           } else {
-               car(sc->envir) = immutable_cons(sc, immutable_cons(sc, sc->code, sc->value), car(sc->envir));
+               new_slot_in_env(sc, sc->code, sc->value); 
           }
           s_return(sc,sc->code);
 
@@ -2098,10 +2403,10 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
      case OP_SET1:       /* set! */
        y=find_slot_in_env(sc,sc->envir,sc->code,1);
           if (y != sc->NIL) {
-               cdr(y) = sc->value;
+               set_slot_in_env(sc, y, sc->value); 
                s_return(sc,sc->value);
           } else {
-               Error_1(sc,"unbound variable:", sc->code);
+               Error_1(sc,"set!: unbound variable:", sc->code); 
           }
 
 
@@ -2134,7 +2439,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           sc->code = is_symbol(car(sc->code)) ? cadr(sc->code) : car(sc->code);
           s_goto(sc,OP_LET1);
 
-     case OP_LET1:       /* let (caluculate parameters) */
+     case OP_LET1:       /* let (calculate parameters) */
           sc->args = cons(sc, sc->value, sc->args);
           if (is_pair(sc->code)) { /* continue */
                s_save(sc,OP_LET1, sc->args, cdr(sc->code));
@@ -2142,26 +2447,25 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
                sc->args = sc->NIL;
                s_goto(sc,OP_EVAL);
           } else {  /* end */
-               sc->args = reverse(sc, sc->args);
+               sc->args = reverse_in_place(sc, sc->NIL, sc->args);
                sc->code = car(sc->args);
                sc->args = cdr(sc->args);
                s_goto(sc,OP_LET2);
           }
 
      case OP_LET2:       /* let */
-          sc->envir = immutable_cons(sc, sc->NIL, sc->envir);
-          setenvironment(sc->envir);
+          new_frame_in_env(sc, sc->envir); 
           for (x = is_symbol(car(sc->code)) ? cadr(sc->code) : car(sc->code), y = sc->args;
                y != sc->NIL; x = cdr(x), y = cdr(y)) {
-               car(sc->envir) = immutable_cons(sc, immutable_cons(sc, caar(x), car(y)), car(sc->envir));
+               new_slot_in_env(sc, caar(x), car(y)); 
           }
           if (is_symbol(car(sc->code))) {    /* named let */
                for (x = cadr(sc->code), sc->args = sc->NIL; x != sc->NIL; x = cdr(x)) {
 
                     sc->args = cons(sc, caar(x), sc->args);
                }
-               x = mk_closure(sc, cons(sc, reverse(sc, sc->args), cddr(sc->code)), sc->envir);
-               car(sc->envir) = immutable_cons(sc, immutable_cons(sc, car(sc->code), x), car(sc->envir));
+               x = mk_closure(sc, cons(sc, reverse_in_place(sc, sc->NIL, sc->args), cddr(sc->code)), sc->envir); 
+               new_slot_in_env(sc, car(sc->code), x); 
                sc->code = cddr(sc->code);
                sc->args = sc->NIL;
           } else {
@@ -2172,8 +2476,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
 
      case OP_LET0AST:    /* let* */
           if (car(sc->code) == sc->NIL) {
-               sc->envir = immutable_cons(sc, sc->NIL, sc->envir);
-               setenvironment(sc->envir);
+               new_frame_in_env(sc, sc->envir); 
                sc->code = cdr(sc->code);
                s_goto(sc,OP_BEGIN);
           }
@@ -2182,12 +2485,11 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           s_goto(sc,OP_EVAL);
 
      case OP_LET1AST:    /* let* (make new frame) */
-          sc->envir = immutable_cons(sc, sc->NIL, sc->envir);
-          setenvironment(sc->envir);
+          new_frame_in_env(sc, sc->envir); 
           s_goto(sc,OP_LET2AST);
 
-     case OP_LET2AST:    /* let* (caluculate parameters) */
-          car(sc->envir) = immutable_cons(sc, immutable_cons(sc, caar(sc->code), sc->value), car(sc->envir));
+     case OP_LET2AST:    /* let* (calculate parameters) */
+          new_slot_in_env(sc, caar(sc->code), sc->value); 
           sc->code = cdr(sc->code);
           if (is_pair(sc->code)) { /* continue */
                s_save(sc,OP_LET2AST, sc->args, sc->code);
@@ -2211,14 +2513,13 @@ static pointer opexe_1(scheme *sc, enum scheme_opcodes op) {
 
      switch (op) {
      case OP_LET0REC:    /* letrec */
-          sc->envir = immutable_cons(sc, sc->NIL, sc->envir);
-          setenvironment(sc->envir);
+          new_frame_in_env(sc, sc->envir); 
           sc->args = sc->NIL;
           sc->value = sc->code;
           sc->code = car(sc->code);
           s_goto(sc,OP_LET1REC);
 
-     case OP_LET1REC:    /* letrec (caluculate parameters) */
+     case OP_LET1REC:    /* letrec (calculate parameters) */
           sc->args = cons(sc, sc->value, sc->args);
           if (is_pair(sc->code)) { /* continue */
                s_save(sc,OP_LET1REC, sc->args, cdr(sc->code));
@@ -2226,7 +2527,7 @@ static pointer opexe_1(scheme *sc, enum scheme_opcodes op) {
                sc->args = sc->NIL;
                s_goto(sc,OP_EVAL);
           } else {  /* end */
-               sc->args = reverse(sc, sc->args);
+               sc->args = reverse_in_place(sc, sc->NIL, sc->args); 
                sc->code = car(sc->args);
                sc->args = cdr(sc->args);
                s_goto(sc,OP_LET2REC);
@@ -2234,7 +2535,7 @@ static pointer opexe_1(scheme *sc, enum scheme_opcodes op) {
 
      case OP_LET2REC:    /* letrec */
           for (x = car(sc->code), y = sc->args; y != sc->NIL; x = cdr(x), y = cdr(y)) {
-               car(sc->envir) = immutable_cons(sc, immutable_cons(sc, caar(x), car(y)), car(sc->envir));
+               new_slot_in_env(sc, caar(x), car(y)); 
           }
           sc->code = cdr(sc->code);
           sc->args = sc->NIL;
@@ -2342,15 +2643,11 @@ static pointer opexe_1(scheme *sc, enum scheme_opcodes op) {
 
      case OP_MACRO1:     /* macro */
           typeflag(sc->value) = T_MACRO;
-          for (x = car(sc->envir); x != sc->NIL; x = cdr(x)) {
-               if (caar(x) == sc->code) {
-                    break;
-               }
-          }
+          x = find_slot_in_env(sc, sc->envir, sc->code, 0); 
           if (x != sc->NIL) {
-               cdar(x) = sc->value;
+               set_slot_in_env(sc, x, sc->value); 
           } else {
-               car(sc->envir) = immutable_cons(sc, immutable_cons(sc, sc->code, sc->value), car(sc->envir));
+               new_slot_in_env(sc, sc->code, sc->value); 
           }
           s_return(sc,sc->code);
 
@@ -3111,7 +3408,7 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
           s_return(sc,sc->T);
 
      case OP_OBLIST: /* oblist */
-          s_return(sc,sc->oblist);
+          s_return(sc, oblist_all_symbols(sc)); 
 
      case OP_CURR_INPORT: /* current-input-port */
           s_return(sc,sc->inport);
@@ -3259,7 +3556,7 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
           }
           case TOK_VEC:
                s_save(sc,OP_RDVEC,sc->NIL,sc->NIL);
-               /* fallthrough */
+               /* fall through */
           case TOK_LPAREN:
                sc->tok = token(sc);
                if (sc->tok == TOK_RPAREN) {
@@ -3307,7 +3604,7 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
                if(f==sc->NIL) {
                     Error_0(sc,"undefined sharp expression");
                } else {
-                    sc->code=cons(sc,cdr(f),sc->NIL);
+                    sc->code=cons(sc,slot_value_in_env(f),sc->NIL); 
                     s_goto(sc,OP_EVAL);
                }
           }
@@ -3590,7 +3887,7 @@ static const char *procname(pointer x) {
  return name;
 }
 
-/* kernel of this intepreter */
+/* kernel of this interpreter */
 static void Eval_Cycle(scheme *sc, enum scheme_opcodes op) {
   int count=0;
   int old_op;
@@ -3676,11 +3973,8 @@ static void Eval_Cycle(scheme *sc, enum scheme_opcodes op) {
 static void assign_syntax(scheme *sc, char *name) {
      pointer x;
 
-     x = immutable_cons(sc, mk_string(sc, name), sc->NIL);
-     typeflag(x) = (T_SYNTAX | T_SYMBOL);
-     setimmutable(x);
-     setimmutable(car(x));
-     sc->oblist = immutable_cons(sc, x, sc->oblist);
+     x = oblist_add_by_name(sc, name); 
+     typeflag(x) |= T_SYNTAX; 
 }
 
 static void assign_proc(scheme *sc, enum scheme_opcodes op, char *name) {
@@ -3688,7 +3982,7 @@ static void assign_proc(scheme *sc, enum scheme_opcodes op, char *name) {
 
      x = mk_symbol(sc, name);
      y = mk_proc(sc,op);
-     car(sc->global_env) = immutable_cons(sc, immutable_cons(sc, x, y), car(sc->global_env));
+     new_slot_in_env(sc, x, y); 
 }
 
 static pointer mk_proc(scheme *sc, enum scheme_opcodes op) {
@@ -3701,7 +3995,7 @@ static pointer mk_proc(scheme *sc, enum scheme_opcodes op) {
      return y;
 }
 
-/* Hardcoded for the given keywords. Remember to rewrite if more are added! */
+/* Hard-coded for the given keywords. Remember to rewrite if more are added! */
 static int syntaxnum(pointer p) {
      const char *s=strvalue(car(p));
      switch(strlength(car(p))) {
@@ -3852,7 +4146,6 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   sc->T = &sc->_HASHT;
   sc->F = &sc->_HASHF;
   sc->EOF_OBJ=&sc->_EOF_OBJ;
-  sc->oblist = &sc->_NIL;
   sc->free_cell = &sc->_NIL;
   sc->fcells = 0;
   sc->no_memory=0;
@@ -3868,8 +4161,7 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
     return 0;
   }
   sc->gc_verbose = 0;
-  sc->dump = sc->NIL;
-  sc->envir = sc->global_env;
+  dump_stack_initialize(sc); 
   sc->code = sc->NIL;
   sc->tracing=0;
   
@@ -3882,13 +4174,13 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   /* init F */
   typeflag(sc->F) = (T_ATOM | MARK);
   car(sc->F) = cdr(sc->F) = sc->F;
+  sc->oblist = oblist_initial_value(sc); 
   /* init global_env */
-  sc->global_env = immutable_cons(sc, sc->NIL, sc->NIL);
-  setenvironment(sc->global_env);
+  new_frame_in_env(sc, sc->NIL); 
+  sc->global_env = sc->envir; 
   /* init else */
   x = mk_symbol(sc,"else");
-  car(sc->global_env)=
-    immutable_cons(sc,immutable_cons(sc,x,sc->T),car(sc->global_env));
+  new_slot_in_env(sc, x, sc->T); 
 
   assign_syntax(sc, "lambda");
   assign_syntax(sc, "quote");
@@ -3913,7 +4205,7 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
     }
   }
 
-  /* intialization of global pointers to special symbols */
+  /* initialization of global pointers to special symbols */
   sc->LAMBDA = mk_symbol(sc, "lambda");
   sc->QUOTE = mk_symbol(sc, "quote");
   sc->QQUOTE = mk_symbol(sc, "quasiquote");
@@ -3952,7 +4244,7 @@ void scheme_deinit(scheme *sc) {
 
   sc->oblist=sc->NIL;
   sc->global_env=sc->NIL;
-  sc->dump=sc->NIL;
+  dump_stack_free(sc); 
   sc->envir=sc->NIL;
   sc->code=sc->NIL;
   sc->args=sc->NIL;
@@ -3979,7 +4271,7 @@ void scheme_deinit(scheme *sc) {
 }
 
 void scheme_load_file(scheme *sc, FILE *fin) {
-  sc->dump = sc->NIL;
+  dump_stack_reset(sc); 
   sc->envir = sc->global_env;
   sc->file_i=0;
   sc->load_stack[0].kind=port_input|port_file;
@@ -3998,7 +4290,7 @@ void scheme_load_file(scheme *sc, FILE *fin) {
 }
 
 void scheme_load_string(scheme *sc, const char *cmd) {
-  sc->dump = sc->NIL;
+  dump_stack_reset(sc); 
   sc->envir = sc->global_env;
   sc->file_i=0;
   sc->load_stack[0].kind=port_input|port_string;
@@ -4020,11 +4312,11 @@ void scheme_define(scheme *sc, pointer envir, pointer symbol, pointer value) {
      pointer x;
 
      x=find_slot_in_env(sc,envir,symbol,0);
-     if (x != sc->NIL) {
-          cdr(x) = value;
-     } else {
-          car(envir) = immutable_cons(sc, immutable_cons(sc, symbol, value), car(envir));
-     }
+     if (x != sc->NIL) { 
+          set_slot_in_env(sc, x, value); 
+     } else { 
+          new_slot_spec_in_env(sc, envir, symbol, value); 
+     } 
 }
 
 #if !STANDALONE
@@ -4032,7 +4324,7 @@ void scheme_apply0(scheme *sc, const char *procname) {
      pointer carx=mk_symbol(sc,procname);
      pointer cdrx=sc->NIL;
 
-     sc->dump = sc->NIL;
+     dump_stack_reset(sc); 
      sc->envir = sc->global_env;
      sc->code = cons(sc,carx,cdrx);
      sc->interactive_repl=0;
@@ -4041,7 +4333,7 @@ void scheme_apply0(scheme *sc, const char *procname) {
      }
 
 void scheme_call(scheme *sc, pointer func, pointer args) { 
-   sc->dump = sc->NIL; 
+   dump_stack_reset(sc); 
    sc->envir = sc->global_env; 
    sc->args = args; 
    sc->code = func; 
