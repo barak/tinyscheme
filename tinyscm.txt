@@ -1,81 +1,43 @@
 
 
 
-                                   TinySCHEME
-
--------------------------------------------------------------------------------
-     Version 1.12
-
-     This Scheme interpreter is based on MiniSCHEME version 0.85k4
-     (see miniscm.tar.gz in the Scheme Repository)
-
-     It has been revised by D. Souflis to serve as a scripting language
-     for the HTTP server integrated into the Altera SQL Server
-     <http://www.altera.gr/>.
-
-     D. Souflis (dsouflis@acm.org, dsouflis@altera.gr)
-     Akira KIDA's new address is Akira.Kida@nifty.ne.jp
+                       TinySCHEME Version 1.19
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
 
+This software is open source, covered by a BSD-style license.
+Please read accompanying file license.txt.                                   
 -------------------------------------------------------------------------------
 
-     Features compared to MiniSCHEME
-     -------------------------------
+     This Scheme interpreter is based on MiniSCHEME version 0.85k4
+     (see miniscm.tar.gz in the Scheme Repository)
 
-     All code is now reentrant. Interpreter state is held in a 'scheme'
-     struct, and many interpreters can coexist in the same program, possibly
-     in different threads. The user can specify user-defined memory allocation
-     primitives. (see "Programmer's Reference")
+     D. Souflis (dsouflis@acm.org)
 
-     The reader is more consistent.
+-------------------------------------------------------------------------------
+     What is TinyScheme?
+     -------------------
 
-     Strings, characters and flonums are supported. (see "Types")
+     TinyScheme is a lightweight Scheme interpreter that implements as large
+     a subset of R5RS as was possible without getting very large and
+     complicated. It is meant to be used as an embedded scripting interpreter
+     for other programs. As such, it does not offer IDEs or extensive toolkits
+     although it does sport a small top-level loop, included conditionally.
+     A lot of functionality in TinyScheme is included conditionally, to allow
+     developers freedom in balancing features and footprint.
 
-     Files being loaded can be nested up to some depth.
-
-     R5RS I/O is there, plus String Ports. (see "Scheme Reference","I/O")
-
-     Vectors exist.
-
-     As a standalone application, it supports command-line arguments.
-     (see "Standalone")
-
-     Running out of memory is now handled.
-
-     A new "verbatim" comment that echoes its text, facilitates HTML
-     scripting. (see "Verbatim comments")
-
-     The user can add foreign functions in C. (see "Foreign Functions")
-
-     The code has been changed slightly, core functions have been moved
-     to the library, behavior has been aligned with R5RS etc.
-
-     Support has been added for user-defined error recovery.
-     (see "Error Handling")
-
-     Support has been added for modular programming.
-     (see "Colon Qualifiers - Packages")
-
-     To enable this, EVAL has changed internally, and can
-     now take two arguments, as per R5RS. Environments are supported.
-     (see "Colon Qualifiers - Packages")
-
-     Promises are now evaluated once only.
-
-     (macro (foo form) ...) is now equivalent to (macro foo (lambda(form) ...))
-
-     The reader can be extended using new #-expressions
-     (see "Reader extensions")
-
+     As an embedded interpreter, it allows multiple interpreter states to
+     coexist in the same program, without any interference between them.
+     Programmatically, foreign functions in C can be added and values
+     can be defined in the Scheme environment. Being a quite small program,
+     it is easy to comprehend, get to grips with, and use. 
 
      Known bugs
      ----------
 
-     I know of code using vectors that get messed-up. I haven't gotten around
-     to checking it yet.
-
+     SLIB tests crash... One of the problems is the method used for
+     reading vector literals, which is not correct.
 
      Things that keep missing, or that need fixing
      ---------------------------------------------
@@ -137,9 +99,47 @@
           defined during compilation, too.
      Version 1.12
           Cis* incorrectly called isalpha() instead of isascii()
-          Added USE_CHAR_CLASSIFIERS
-
-
+          Added USE_CHAR_CLASSIFIERS, USE_STRING_PORTS.
+     Version 1.13
+          Silly bug involving division by zero resolved by Roland Kaufman.
+          Macintoch support from Shmulik Regev.
+          Float parser bug fixed by Alexander Shendi.
+          GC bug from Andru Luvisi.
+     Version 1.14
+          Unfortunately, after Andre fixed the GC it became obvious that the
+          algorithm was too slow... Fortunately, David Gould found a way to
+          speed it up.
+     Version 1.15
+          David Gould also contributed some changes that speed up operation.
+          Kirk Zurell fixed HASPROP.
+          The Garbage Collection didn't collect all the garbage...fixed.
+     Version 1.16
+          Dynamically-loaded extensions introduced (USE_DL).
+          Santeri Paavolainen found a race condition: When a cons is executed,
+          and each of the two arguments is a constructing function,  GC could
+          happen before all arguments are evaluated and cons() is called, and
+          the evaluated arguments would all be reclaimed!
+          Fortunately, such a case was rare in the code, although it is
+          a pitfall in new code and code in foreign functions. Currently, only
+          one such case remains, when COLON_HOOK is defined.
+     Version 1.17
+          Dynamically-loaded extensions are more fully integrated.
+          TinyScheme is now distributed under the BSD open-source license.
+     Version 1.18
+          The FFI has been extended. USE_VERBOSE_GC has gone. Anyone wanting
+          the same functionality can put (gcverbose #t) in init.scm.
+          print-width was removed, along with three corresponding op-codes.
+     	  Extended character constants with ASCII names were added.
+          mk_counted_string paves the way for full support of binary strings.
+          As much as possible of the type-checking chores were delegated
+          to the inner loop, thus reducing the code size to less than 4200 loc!
+     Version 1.19
+          Carriage Return now delimits identifiers. DOS-formatted Scheme files
+          can be used by Unix. Random number generator added to library.
+          Fixed some glitches of the new type-checking scheme. Fixed erroneous
+          (append '() 'a) behavior. Will continue with r4rstest.scm to
+          fix errors.
+          
      Scheme Reference
      ----------------
 
@@ -178,7 +178,7 @@
      Performs garbage collection immediatelly.
 
      (gcverbose) (gcverbose <bool>)
-     The argument, if abset defaults to #t, controls whether GC produces
+     The argument (defaulting to #t) controls whether GC produces
      visible outcome.
 
      (quit) (quit <num>)
@@ -202,7 +202,7 @@
           Types
      Types supported:
 
-          Numbers (integer and real)
+          Numbers (integers and reals)
           Symbols
           Pairs
           Strings
@@ -223,6 +223,26 @@
 
      Character literals contain #\space and #\newline and are supplemented
      with #\return and #\tab, with obvious meanings.
+     When USE_ASCII_NAMES is defined, various control characters can be
+     refered to by their ASCII name.
+     0	     #\nul	       17       #\dc1
+     1	     #\soh             18       #\dc2
+     2	     #\stx             19       #\dc3
+     3	     #\etx             20       #\dc4
+     4	     #\eot             21       #\nak
+     5	     #\enq             22       #\syn
+     6	     #\ack             23       #\etv
+     7	     #\bel             24       #\can
+     8	     #\bs              25       #\em
+     9	     #\ht              26       #\sub
+     10	     #\lf              27       #\esc
+     11	     #\vt              28       #\fs
+     12	     #\ff              29       #\gs
+     13	     #\cr              30       #\rs
+     14	     #\so              31       #\us
+     15	     #\si
+     16	     #\dle             127      #\del 		
+     
      Numeric literals support #x #o #b and #d. Flonums are currently read only
      in decimal notation. Full grammar will be supported soon.
 
@@ -256,7 +276,7 @@
           Strings
      string, make-string, list->string, string-length, string-ref, string-set!,
      substring, string->list, string-fill!, string-append, string-copy.
-     string=?, string<?, string>?, string<=?, string>=?.
+     string=?, string<?, string>?, string>?, string<=?, string>=?.
      (No string-ci*?)
 
           Symbols
@@ -288,6 +308,10 @@
      TinyScheme inherited from MiniScheme property lists for symbols.
      put, get.
 
+          Dynamically-loaded extensions
+     (load-extension <filename without extension>)
+     Loads a DLL declaring foreign procedures.          
+     
           Esoteric procedures
      (oblist)
      Returns the oblist, an immutable list of all the symbols.
@@ -309,6 +333,9 @@
      Gets the code as scheme data.
 
 
+          Obsolete procedures
+     (print-width <object>)          
+     
      Verbatim comments
      -----------------
 
@@ -330,8 +357,9 @@
      ----------------------
 
      The interpreter state is initialized with "scheme_init".
-     Custom memory allocation routines can be installed with
-     "scheme_custom_alloc". Files can be loaded with "scheme_load".
+     Custom memory allocation routines can be installed with an alternate
+     initialization function: "scheme_init_custom_alloc". 
+     Files can be loaded with "scheme_load".
      It is a good idea to "scheme_load" init.scm at this point.
 
      External data for keeping external state (of use to foreign functions)
@@ -339,16 +367,29 @@
      Foreign functions are installed with "assign_foreign". Additional 
      definitions can be added to the interpreter state, with "scheme_define" 
      (this is the way HTTP header data and HTML form data are passed to the 
-     Scheme script in the Altera SQL Server).
+     Scheme script in the Altera SQL Server). If you wish to define the
+     foreign function in a specific environment (to enhance modularity),
+     use "assign_foreign_env".
 
      The procedure "scheme_apply0" has been added with persistent scripts in
      mind. Persistent scripts are loaded once, and every time they are needed
      to produce HTTP output, appropriate data are passed through global
-     definitions and function "main" is called to do the job.
+     definitions and function "main" is called to do the job. One could
+     add easily "scheme_apply1" etc.
 
      The interpreter state should be deinitialized with "scheme_deinit".
 
+     DLLs containing foreign functions should define a function named
+     init_<base-name>. E.g. foo.dll should define init_foo, and bar.so
+     should define init_bar. This function should assign_foreign any foreign
+     function contained in the DLL.
 
+     The first dynamically loaded extension available for TinyScheme is
+     a regular expression library. Although it's by no means an
+     established standard, this library is supposed to be installed in
+     a directory mirroring its name under the TinyScheme location.
+
+     
      Foreign Functions
      -----------------
 
@@ -357,9 +398,9 @@
 
           pointer square(scheme *sc, pointer args) {
            if(args!=sc->NIL) {
-               if(isnumber(pair_car(args))) {
-                    double v=rvalue(pair_car(args));
-                    return mk_real(sc,v*v);
+               if(sc->isnumber(sc->pair_car(args))) {
+                    double v=sc->rvalue(sc->pair_car(args));
+                    return sc->mk_real(sc,v*v);
                }
            }
            return sc->NIL;
@@ -377,17 +418,19 @@
      External data are set with the following function:
           void scheme_set_external_data(scheme *sc, void *p);
 
+     As of v.1.17, the canonical way for a foreign function in a DLL to
+     manipulate Scheme data is using the function pointers in sc->interface.
 
      Standalone
      ----------
 
-     Usage: TINYSCHEME [-? | <file1> <file2> ... | -1 <file> <arg1> <arg2> ...]
-     assuming that the executable is named TINYSCHEME.
+     Usage: tinyscheme [-? | <file1> <file2> ... | -1 <file> <arg1> <arg2> ...]
+     assuming that the executable is named tinyscheme.
 
      Use - in the place of a filename to denote stdin.
      The -1 flag is meant for #! usage in shell scripts. If you specify
           #! /somewhere/tinyscheme -1
-     then tinyscheme will be called
+     then tinyscheme will be called to process the file.
 
      Customizing
      -----------
@@ -396,16 +439,19 @@
      Use the -D flag of cc to set to either 1 or 0.
 
      STANDALONE
-     Define this to include "main" so as to produce standalone interpreter.
+     Define this to produce a standalone interpreter.
 
      USE_MATH
      Includes math routines.
 
      USE_CHAR_CLASSIFIERS
-     Includes character classifier procedures
+     Includes character classifier procedures.
+
+     USE_ASCII_NAMES
+     Enable extended character notation based on ASCII names.
 
      USE_STRING_PORTS
-     Enables string ports
+     Enables string ports.
 
      USE_ERROR_HOOK
      To force system errors through user-defined error handling.
@@ -426,13 +472,18 @@
      STDIO_ADDS_CR
      Informs TinyScheme that stdio translates "\n" to "\r\n". For DOS/Windows.
 
+     USE_DL
+     Enables dynamically loaded routines. If you define this symbol, you
+     should also include dynload.c in your compile.
+     
 
      Build instructions
      ------------------
 
-     Are you serious? You want instructions for a single .c file? Just make
-     sure the appropriate symbols described above are defined.
-
+     Easy. Define the appropriate symbols, compile scheme.c (dynload.c, too,
+     if you define USE_DL=1) and link with your application. For 
+     demonstration purposes, a sample makefile that produces a standalone
+     interpreter for Linux is included in this distribution.
 
      Error Handling
      --------------
@@ -524,3 +575,105 @@
      Note: Older versions used ':' as a qualifier. Unfortunately, the use
      of ':' as a pseudo-qualifier in existing code (i.e. SLIB) essentially
      precludes its use as a real qualifier.
+
+     O R I G I N A L   C R E D I T S
+     -------------------------------
+     
+     TinyScheme would not exist if it wasn't for MiniScheme. I had just
+     written the HTTP server for Ovrimos SQL Server, and I was lamenting the
+     lack of a scripting language. Server-side Javascript would have been the
+     preferred solution, had there been a Javascript interpreter I could
+     lay my hands on. But there weren't. Perl would have been another solution,
+     but it was probably ten times bigger that the program it was supposed to
+     be embedded in. There would also be thorny licencing issues. 
+     
+     So, the obvious thing to do was find a trully small interpreter. Forth
+     was a language I had once quasi-implemented, but the difficulty of
+     handling dynamic data and the weirdness of the language put me off. I then
+     looked around for a LISP interpreter, the next thing I knew was easy to
+     implement. Alas, the LeLisp I knew from my days in UPMC (Universite Pierre
+     et Marie Curie) had given way to Common Lisp, a megalith of a language!
+     But then my search lead me to Scheme, a language I knew was very orthogonal
+     and clean. When I found Mini-Scheme, a single C file of some 2400 loc, I fell
+     in love with it! What if it lacked floating-point numbers and strings!
+     The rest, as they say, is history.
+     
+     Below  are the original credits. Don't email Akira KIDA, the address has
+     changed.
+     
+     ---------- Mini-Scheme Interpreter Version 0.85 ----------
+
+                coded by Atsushi Moriwaki (11/5/1989)
+
+            E-MAIL :  moriwaki@kurims.kurims.kyoto-u.ac.jp
+
+               THIS SOFTWARE IS IN THE PUBLIC DOMAIN
+               ------------------------------------
+ This software is completely free to copy, modify and/or re-distribute.
+ But I would appreciate it if you left my name on the code as the author.
+
+  This version has been modified by R.C. Secrist.
+
+  Mini-Scheme is now maintained by Akira KIDA.
+
+  This is a revised and modified version by Akira KIDA.
+   current version is 0.85k4 (15 May 1994)
+
+  Please send suggestions, bug reports and/or requests to:
+        <SDI00379@niftyserve.or.jp>
+
+
+     Features compared to MiniSCHEME
+     -------------------------------
+
+     All code is now reentrant. Interpreter state is held in a 'scheme'
+     struct, and many interpreters can coexist in the same program, possibly
+     in different threads. The user can specify user-defined memory allocation
+     primitives. (see "Programmer's Reference")
+
+     The reader is more consistent.
+
+     Strings, characters and flonums are supported. (see "Types")
+
+     Files being loaded can be nested up to some depth.
+
+     R5RS I/O is there, plus String Ports. (see "Scheme Reference","I/O")
+
+     Vectors exist.
+
+     As a standalone application, it supports command-line arguments.
+     (see "Standalone")
+
+     Running out of memory is now handled.
+
+     A new "verbatim" comment that echoes its text, facilitates HTML
+     scripting. (see "Verbatim comments")
+
+     The user can add foreign functions in C. (see "Foreign Functions")
+
+     The code has been changed slightly, core functions have been moved
+     to the library, behavior has been aligned with R5RS etc.
+
+     Support has been added for user-defined error recovery.
+     (see "Error Handling")
+
+     Support has been added for modular programming.
+     (see "Colon Qualifiers - Packages")
+
+     To enable this, EVAL has changed internally, and can
+     now take two arguments, as per R5RS. Environments are supported.
+     (see "Colon Qualifiers - Packages")
+
+     Promises are now evaluated once only.
+
+     (macro (foo form) ...) is now equivalent to (macro foo (lambda(form) ...))
+
+     The reader can be extended using new #-expressions
+     (see "Reader extensions")
+
+
+
+
+
+
+

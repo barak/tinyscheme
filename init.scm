@@ -1,4 +1,4 @@
-;    Initialization file for TinySCHEME 1.11
+;    Initialization file for TinySCHEME 1.19 
 
 ; Per R5RS, up to four deep compositions should be defined
 (define (caar x) (car (car x)))
@@ -320,7 +320,7 @@
                     ,@(map (lambda (x)
                              (if (and (pair? x) (cdr x))
                                (car (cdr x))
-                               nil))
+                               '()))
                         `,vars)))))
       do-macro)))
 
@@ -489,3 +489,14 @@
                          (set-input-port prev-inport)
                          (set-output-port prev-outport)
                          res)))))
+
+; Random number generator (maximum cycle)
+(define *seed* 1)
+(define (random-next)
+     (let* ((a 16807) (m 2147483647) (q (quotient m a)) (r (modulo m a)))
+          (set! *seed*
+               (-   (* a (- *seed*
+                         (* (quotient *seed* q) q)))
+                    (* (quotient *seed* q) r)))
+          (if (< *seed* 0) (set! *seed* (+ *seed* m)))
+          *seed*))
