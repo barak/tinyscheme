@@ -4,15 +4,18 @@
 # Windows/2000 
 #CC = cl -nologo 
 #DEBUG= -W3 -Z7 -MD 
-#DL_FLAGS= -DWIN32 
+#DL_FLAGS= 
 #SYS_LIBS= 
 #Osuf=obj 
 #SOsuf=dll 
+#LIBsuf=.lib
 #EXE_EXT=.exe 
 #LD = link -nologo 
 #LDFLAGS = -debug -map -dll -incremental:no 
 #LIBPREFIX = 
 #OUT = -out:$@ 
+#RM= -del
+#AR= echo
 
 # Unix, generally 
 CC = gcc -fpic 
@@ -23,6 +26,8 @@ LIBsuf=a
 EXE_EXT=
 LIBPREFIX=lib
 OUT = -o $@ 
+RM= -rm -f
+AR= ar crs
  
 # Linux 
 LD = gcc 
@@ -61,15 +66,19 @@ scheme$(EXE_EXT): $(OBJS)
 	$(CC) -o $@ $(DEBUG) $(OBJS) $(SYS_LIBS) 
 
 $(STATICLIBTARGET): $(OBJS)
-	ar cr $@ $(OBJS)
+	$(AR) $@ $(OBJS)
 
-$(OBJS): scheme.h 
+$(OBJS): scheme.h scheme-private.h opdefines.h
 dynload.$(Osuf): dynload.h 
 
 clean: 
-	-rm -f $(OBJS) $(LIBTARGET) scheme$(EXE_EXT) 
-	-rm -f tinyscheme.dll tinyscheme.ilk tinyscheme.map tinyscheme.pdb 
+	$(RM) $(OBJS) $(LIBTARGET) $(STATICLIBTARGET) scheme$(EXE_EXT)
+	$(RM) tinyscheme.ilk tinyscheme.map tinyscheme.pdb tinyscheme.exp
+	$(RM) scheme.ilk scheme.map scheme.pdb scheme.lib scheme.exp
+	$(RM) *~
+
+TAGS_SRCS = scheme.h scheme.c dynload.h dynload.c
 
 tags: TAGS 
-TAGS: scheme.h scheme.c dynload.h dynload.c 
-	etags $^ 
+TAGS: $(TAGS_SRCS) 
+	etags $(TAGS_SRCS) 

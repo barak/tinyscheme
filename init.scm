@@ -1,4 +1,4 @@
-;    Initialization file for TinySCHEME 1.25 onwards
+;    Initialization file for TinySCHEME 1.31 onwards
 
 ; Per R5RS, up to four deep compositions should be defined
 (define (caar x) (car (car x)))
@@ -103,21 +103,6 @@
           (if (= n -1)
                l
                (loop (pred n) (cons (string-ref s n) l)))))
-
-(define (string-append . strs)
-     (define (string-overwrite dst idst src)
-          (do ((i 0 (+ i 1)))
-              ((= i (string-length src)) dst)
-               (string-set! dst (+ idst i) (string-ref src i))))
-     (let* ((tot-len (foldr
-                         (lambda (x s) (+ x (string-length s)))
-                         0
-                         strs))
-           (news (make-string tot-len)))
-          (do ((i 0) (lst strs (cdr lst)))
-              ((null? lst) news)
-               (string-overwrite news i (car lst))
-               (set! i (+ i (string-length (car lst)))))))
 
 (define (string-copy str)
      (string-append str))

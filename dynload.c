@@ -25,7 +25,7 @@ typedef void (*FARPROC)();
 #include <dlfcn.h>
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 
 #define PREFIX ""
 #define SUFFIX ".dll"
@@ -42,7 +42,7 @@ typedef void (*FARPROC)();
  } 
 
 static HMODULE dl_attach(const char *module) {
-  HMODULE ddl = LoadLibrary(module);
+  HMODULE dll = LoadLibrary(module);
   if (!dll) display_w32_error_msg(module); 
   return dll; 
 }

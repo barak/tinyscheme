@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 3 0
+/* T I N Y S C H E M E    1 . 3 1
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -13,7 +13,6 @@
  */
 
 #define _SCHEME_SOURCE
-#include "scheme.h"
 #include "scheme-private.h"
 #if USE_DL
 # include "dynload.h"
@@ -203,8 +202,10 @@ INTERFACE pointer set_cdr(pointer p, pointer q) { return cdr(p)=q; }
 
 INTERFACE INLINE int is_symbol(pointer p)   { return (type(p)==T_SYMBOL); }
 INTERFACE INLINE char *symname(pointer p)   { return strvalue(car(p)); }
-INTERFACE INLINE int hasprop(pointer p)     { return (typeflag(p)&T_SYMBOL); }
+#if USE_PLIST
+SCHEME_EXPORT INLINE int hasprop(pointer p)     { return (typeflag(p)&T_SYMBOL); }
 #define symprop(p)       cdr(p)
+#endif
 
 INTERFACE INLINE int is_syntax(pointer p)   { return (typeflag(p)&T_SYNTAX); }
 INTERFACE INLINE int is_proc(pointer p)     { return (type(p)==T_PROC); }
@@ -3053,6 +3054,7 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
           }
           s_return(sc,x);
 
+#if USE_PLIST
      case OP_PUT:        /* put */
           if (!hasprop(car(sc->args)) || !hasprop(cadr(sc->args))) {
                Error_0(sc,"illegal use of put");
@@ -3083,7 +3085,7 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
           } else {
                s_return(sc,sc->NIL);
           }
-
+#endif /* USE_PLIST */
      case OP_QUIT:       /* quit */
           if(is_pair(sc->args)) {
                sc->retcode=ivalue(car(sc->args));
@@ -3145,7 +3147,8 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
                case OP_OPEN_OUTSTRING:    prop=port_output; break;
                case OP_OPEN_INOUTSTRING:  prop=port_input|port_output; break;
           }
-          p=port_from_string(sc,strvalue(car(sc->args)),0,prop);
+          p=port_from_string(sc, strvalue(car(sc->args)),
+	             strvalue(car(sc->args))+strlength(car(sc->args)), prop);
           if(p==sc->NIL) {
                s_return(sc,sc->F);
           }
@@ -3782,7 +3785,6 @@ static struct scheme_interface vtbl ={
 
   is_symbol,
   symname,
-  hasprop,
 
   is_syntax,
   is_proc,
