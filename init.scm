@@ -1,4 +1,4 @@
-;    Initialization file for TinySCHEME 1.25
+;    Initialization file for TinySCHEME 1.25 onwards
 
 ; Per R5RS, up to four deep compositions should be defined
 (define (caar x) (car (car x)))
@@ -583,3 +583,5 @@
 			   (error "cond-expand : 'not' takes 1 argument")
 			   (not (cond-eval (cadr condition)))))
 		(else (error "cond-expand : unknown operator" (car condition)))))))
+
+(gc-verbose #t)

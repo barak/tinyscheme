@@ -52,7 +52,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.24"
+#define banner "TinyScheme 1.27"
 
 #include <string.h>
 #include <stdlib.h>
@@ -590,6 +590,7 @@ static int alloc_cellseg(scheme *sc, int n) {
 }
 
 static INLINE pointer get_cell(scheme *sc, pointer a, pointer b) {
+  printf("get_cell (free=%d)\n",sc->fcells);
   if (sc->free_cell != sc->NIL) {
     pointer x = sc->free_cell;
     sc->free_cell = cdr(x);
@@ -1278,7 +1279,7 @@ static void backchar(scheme *sc, int c) {
     ungetc(c,pt->rep.stdio.file);
   } else {
     if(pt->rep.string.curr!=pt->rep.string.start) {
-      *--pt->rep.string.curr=c;
+      --pt->rep.string.curr;
     }
   }
 }
@@ -2906,7 +2907,7 @@ static pointer opexe_2(scheme *sc, int op) {
 
           if(cddr(sc->args)!=sc->NIL) {
                index1=ivalue(caddr(sc->args));
-               if((size_t)index1>strlength(car(sc->args))) {
+               if((size_t)index1>strlength(car(sc->args)) || index1<index0) {
                     Error_1(sc,"substring: out of bounds:",caddr(sc->args));
                }
           } else {
@@ -4171,7 +4172,7 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
     sc->no_memory=1;
     return 0;
   }
-  sc->gc_verbose = 0;
+  sc->gc_verbose = 1;
   sc->dump = sc->NIL;
   sc->envir = sc->global_env;
   sc->code = sc->NIL;

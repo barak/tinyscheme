@@ -12,10 +12,12 @@
 # define STANDALONE 0
 #endif
 
-#ifndef _MSC_VER
-# define USE_STRCASECMP 1
-# define USE_STRLWR 1
-# define STDIO_ADDS_CR 1
+#ifndef _MSC_VER 
+# define USE_STRCASECMP 1 
+# define USE_STRLWR 1 
+#else 
+# define USE_STRCASECMP 0 
+# define USE_STRLWR 0 
 #endif
 
 #if USE_NO_FEATURES

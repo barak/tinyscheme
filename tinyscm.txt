@@ -1,7 +1,7 @@
 
 
 
-                       TinySCHEME Version 1.25
+                       TinySCHEME Version 1.27
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -182,6 +182,16 @@ Please read accompanying file license.txt.
 	  test (and never did)... However, on the bright side, what little
 	  modifications I did had a large impact on the footprint: 
 	  USE_NO_FEATURES now produces an object file of 63960 bytes on Linux!
+     Version 1.26
+          Version 1.26 was never released. I changed a lot of things, in fact
+          too much, even the garbage collector, and hell broke loose. I'll
+          try a more gradual approach next time.
+     Version 1.27
+          Version 1.27 is the successor of 1.25. Bug fixes only, but I had to
+          release them so that everybody can profit. 'Backchar' tried to write
+          back to the string, which obviously didn't work for const strings.
+          'Substring' didn't check for crossed start and end indices. Defines
+          changed to restore the ability to compile under MSVC.
           
      Scheme Reference
      ----------------
