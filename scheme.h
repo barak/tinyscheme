@@ -26,7 +26,6 @@
 # define USE_ERROR_HOOK 0
 # define USE_TRACING 0
 # define USE_COLON_HOOK 0
-# define USE_VERBATIM 0
 # define USE_DL 0
 #endif
 
@@ -57,10 +56,6 @@
 
 #ifndef USE_COLON_HOOK   /* Enable qualified qualifier */
 # define USE_COLON_HOOK 1
-#endif
-
-#ifndef USE_VERBATIM     /* Enable verbatim comments (for HTML) */
-# define USE_VERBATIM 1
 #endif
 
 #ifndef USE_STRCASECMP   /* stricmp for Unix */
@@ -111,35 +106,40 @@ typedef struct num {
 
 enum { port_free=0, port_file=1, port_string=2, port_input=16, port_output=32 };
 
-typedef struct {
-     unsigned char kind;
-     union {
-          FILE *file;
-          struct {
-               char *start;
-               char *past_the_end;
-               char *curr;
-          } string;
-     } rep;
+typedef struct port {
+  unsigned char kind;
+  union {
+    struct {
+      FILE *file;
+      int closeit;
+    } stdio;
+    struct {
+      char *start;
+      char *past_the_end;
+      char *curr;
+    } string;
+  } rep;
 } port;
+
+typedef pointer (*foreign_func)(scheme *, pointer);
 
 /* cell structure */
 struct cell {
-     unsigned int _flag;
-     union {
-          struct {
-               char   *_svalue;
-               int   _length;
-          } _string;
-          num _number;
-          struct {
-               struct cell *_car;
-               struct cell *_cdr;
-          } _cons;
-     } _object;
+  unsigned int _flag;
+  union {
+    struct {
+      char   *_svalue;
+      int   _length;
+    } _string;
+    num _number;
+    port *_port;
+    foreign_func _ff;
+    struct {
+      struct cell *_car;
+      struct cell *_cdr;
+    } _cons;
+  } _object;
 };
-
-typedef pointer (*foreign_func)(scheme *, pointer);
 
 struct scheme {
 /* arrays for segments */
@@ -154,10 +154,6 @@ int tracing;
 #define CELL_NSEGMENT   100   /* # of segments for cells */
 pointer cell_seg[CELL_NSEGMENT];
 int     last_cell_seg;
-
-#define FFNUM 200             /* Number of foreign functions */
-foreign_func ff[FFNUM];
-int     last_ff;
 
 /* We use 4 registers. */
 pointer args;            /* register for arguments of function */
@@ -195,18 +191,16 @@ pointer SHARP_HOOK;  /* *sharp-hook* */
 pointer free_cell;       /* pointer to top of free cells */
 long    fcells;          /* # of free cells */
 
-int inport;
-int outport;
-int save_inport;
+pointer inport;
+pointer outport;
+pointer save_inport;
+pointer loadport;
 
 #define MAXFIL 64
-FILE *file_stack[MAXFIL];     /* Stack of open files for port -1 (LOADing) */
+port load_stack[MAXFIL];     /* Stack of open files for port -1 (LOADing) */
 int nesting_stack[MAXFIL];
 int file_i;
 int nesting;
-
-#define FILENUM 32
-port ports[FILENUM];          /* Open files */
 
 char    gc_verbose;      /* if gc_verbose is not zero, print gc status */
 char    no_memory;       /* Whether mem. alloc. has failed */
@@ -237,12 +231,8 @@ pointer gensym(scheme *sc);
 pointer mk_string(scheme *sc, const char *str);
 pointer mk_counted_string(scheme *sc, const char *str, int len);
 pointer mk_character(scheme *sc, int c);
-void assign_foreign(scheme *sc, foreign_func, char *name);
-void assign_foreign_env(scheme *sc, pointer env, foreign_func func, char *name);
+pointer mk_foreign_func(scheme *sc, foreign_func f);
 void putstr(scheme *sc, const char *s);
-
-typedef void (*assign_foreign_func)(scheme *sc, foreign_func, char *name);
-typedef void (*assign_foreign_env_func)(scheme *sc, pointer env, foreign_func, char *name);
 
 int is_string(pointer p);
 char *string_value(pointer p);
@@ -296,8 +286,7 @@ pointer (*mk_string)(scheme *sc, const char *str);
 pointer (*mk_counted_string)(scheme *sc, const char *str, int len);
 pointer (*mk_character)(scheme *sc, int c);
 pointer (*mk_vector)(scheme *sc, int len);
-void (*assign_foreign)(scheme *sc, foreign_func, char *name);
-void (*assign_foreign_env)(scheme *sc, pointer env, foreign_func func, char *name);
+pointer (*mk_foreign_func)(scheme *sc, foreign_func f);
 void (*putstr)(scheme *sc, const char *s);
 void (*putcharacter)(scheme *sc, int c);
 

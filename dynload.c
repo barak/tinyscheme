@@ -71,7 +71,7 @@ pointer scm_load_ext(scheme *sc, pointer args)
    char filename[MAXPATHLEN], init_fn[MAXPATHLEN+6];
    char *name, *errmsg;
    HMODULE dll_handle;
-   void (*module_init)(scheme *sc, assign_foreign_func func);
+   void (*module_init)(scheme *sc);
    
    if ((args != sc->NIL) && is_string((first_arg = pair_car(args)))) {
       name = string_value(first_arg);
@@ -86,7 +86,7 @@ pointer scm_load_ext(scheme *sc, pointer args)
       else {
          module_init = dl_proc(dll_handle, init_fn);
          if (module_init != 0) {
-            (*module_init)(sc,assign_foreign);
+            (*module_init)(sc);
             retval = sc -> T;
          }
          else {
@@ -118,3 +118,9 @@ static void make_init_fn(const char *name, char *init_fn) {
  strcpy(init_fn,"init_");
  strcat(init_fn,p);
 }
+
+
+
+
+
+
