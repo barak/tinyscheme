@@ -1,7 +1,7 @@
 
 
 
-                       TinySCHEME Version 1.24
+                       TinySCHEME Version 1.25
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -174,7 +174,14 @@ Please read accompanying file license.txt.
 	  meantime. This should be considered as a complete replacement for
 	  1.22.
      Version 1.24
-	  SCM tests now pass again after change in atom2str.   	  
+	  SCM tests now pass again after change in atom2str.
+     Version 1.25
+          Types have been homogenized to be able to accomodate a different
+	  representation. Plus, promises are no longer closures. Unfortunately,
+	  I discovered that continuations and force/delay do not pass the SCM
+	  test (and never did)... However, on the bright side, what little
+	  modifications I did had a large impact on the footprint: 
+	  USE_NO_FEATURES now produces an object file of 63960 bytes on Linux!
           
      Scheme Reference
      ----------------
@@ -373,6 +380,8 @@ Please read accompanying file license.txt.
      (get-closure-code <closure>)
      Gets the code as scheme data.
 
+     (make-closure <code> <environment>)
+     Makes a new closure in the given environment.
 
           Obsolete procedures
      (print-width <object>)          
