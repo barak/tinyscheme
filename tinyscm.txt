@@ -1,7 +1,7 @@
 
 
 
-                       TinySCHEME Version 1.29
+                       TinySCHEME Version 1.30
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -210,7 +210,17 @@ Please read accompanying file license.txt.
 	  another bugfix that v.1.28 was missing: a problem with string
 	  output, that this version fixes. I hope other people will take
 	  the time to resend their contributions, if they didn't make it
-	  to v.1.28.   
+	  to v.1.28.
+     Version 1.30
+	  After many months, I followed Preston Bannister's advice of
+	  using macros and a single source text to keep the enums and the
+	  dispatch table in sync, and I used his contributed "opdefines.h".
+	  Timothy Downs contributed a helpful function, "scheme_call".
+	  Stephen Gildea contributed new versions of the makefile and 
+	  practically all other sources. He created a built-in STRING-APPEND,
+	  and fixed a lot of other bugs.
+	  Ruhi Bloodworth reported fixes necessary for OS X and a small
+	  bug in dynload.c.
           
      Scheme Reference
      ----------------
@@ -469,11 +479,14 @@ Please read accompanying file license.txt.
            return sc->NIL;
           }
 
-     You install it with:
-     
-          assign_foreign(sc,square,"double");
+   Foreign functions are now defined as closures: 
 
-     after initialization.
+   sc->interface->scheme_define( 
+        sc, 
+        sc->global_env, 
+        sc->interface->mk_symbol(sc,"square"), 
+        sc->interface->mk_foreign_func(sc, square)); 
+
 
      Foreign functions can use the external data in the "scheme" struct
      to implement any kind of external state.

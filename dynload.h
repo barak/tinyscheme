@@ -5,8 +5,8 @@
 #ifndef DYNLOAD_H
 #define DYNLOAD_H
 
-#include "scheme.h"
+#include "scheme-private.h"
 
-pointer scm_load_ext(scheme *sc, pointer arglist);
+SCHEME_EXPORT pointer scm_load_ext(scheme *sc, pointer arglist);
 
 #endif
