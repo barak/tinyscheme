@@ -5,23 +5,31 @@
 
 #include <stdio.h>
 
-#ifdef _T
-# undef _T
-#endif
-
 /*
  * Default values for #define'd symbols
  */
-#ifndef USE_VERBOSE_GC   /* 1 you want verbose GC */
-# define USE_VERBOSE_GC 0
-#endif
-
 #ifndef STANDALONE       /* If used as standalone interpreter */
 # define STANDALONE 0
 #endif
 
+#ifndef _MSC_VER
+# define USE_STRCASECMP 1
+#endif
+
 #ifndef USE_MATH         /* If math support is needed */
 # define USE_MATH 1
+#endif
+
+#ifndef USE_CHAR_CLASSIFIERS  /* If char classifiers are needed */
+# define USE_CHAR_CLASSIFIERS 1
+#endif
+
+#ifndef USE_ASCII_NAMES  /* If extended escaped characters are needed */
+# define USE_ASCII_NAMES 1
+#endif
+
+#ifndef USE_STRING_PORTS      /* Enable string ports */
+# define USE_STRING_PORTS 1
 #endif
 
 /* To force system errors through user-defined error handling (see *error-hook*) */
@@ -45,6 +53,10 @@
 # define STDIO_ADDS_CR 0
 #endif
 
+#ifndef INLINE
+# define INLINE
+#endif
+
 typedef struct scheme scheme;
 typedef struct cell *pointer;
 
@@ -52,7 +64,7 @@ typedef void * (*func_alloc)(size_t);
 typedef void (*func_dealloc)(void *);
 
 int scheme_init(scheme *sc);
-void scheme_custom_alloc(scheme *sc, func_alloc, func_dealloc);
+int scheme_init_custom_alloc(scheme *sc, func_alloc, func_dealloc);
 void scheme_deinit(scheme *sc);
 void scheme_set_input_port_file(scheme *sc, FILE *fin);
 void scheme_set_input_port_string(scheme *sc, char *start, char *past_the_end);
@@ -95,7 +107,7 @@ struct cell {
      union {
           struct {
                char   *_svalue;
-               int   _keynum;
+               int   _length;
           } _string;
           num _number;
           struct {
@@ -153,6 +165,9 @@ pointer QQUOTE;               /* pointer to symbol quasiquote */
 pointer UNQUOTE;         /* pointer to symbol unquote */
 pointer UNQUOTESP;       /* pointer to symbol unquote-splicing */
 pointer FEED_TO;         /* => */
+pointer COLON_HOOK;      /* *colon-hook* */
+pointer ERROR_HOOK;      /* *error-hook* */
+pointer SHARP_HOOK;  /* *sharp-hook* */
 
 pointer free_cell;       /* pointer to top of free cells */
 long    fcells;          /* # of free cells */
@@ -186,7 +201,7 @@ int op;
 void *ext_data;     /* For the benefit of foreign functions */
 long gensym_cnt;
 
-long w;             /* Used for printing */
+struct scheme_interface *interface;
 };
 
 pointer _cons(scheme *sc, pointer a, pointer b, int immutable);
@@ -197,8 +212,14 @@ pointer mk_real(scheme *sc, double num);
 pointer mk_symbol(scheme *sc, const char *name);
 pointer gensym(scheme *sc);
 pointer mk_string(scheme *sc, const char *str);
+pointer mk_counted_string(scheme *sc, const char *str, int len);
 pointer mk_character(scheme *sc, int c);
 void assign_foreign(scheme *sc, foreign_func, char *name);
+void assign_foreign_env(scheme *sc, pointer env, foreign_func func, char *name);
+void putstr(scheme *sc, const char *s);
+
+typedef void (*assign_foreign_func)(scheme *sc, foreign_func, char *name);
+typedef void (*assign_foreign_env_func)(scheme *sc, pointer env, foreign_func, char *name);
 
 int is_string(pointer p);
 char *string_value(pointer p);
@@ -210,6 +231,7 @@ int is_integer(pointer p);
 int is_real(pointer p);
 int is_character(pointer p);
 long charvalue(pointer p);
+int is_vector(pointer p);
 
 int is_port(pointer p);
 
@@ -239,9 +261,63 @@ int is_promise(pointer p);
 int is_environment(pointer p);
 int is_immutable(pointer p);
 
-#define pair_caar(p)          pair_car(pair_car(p))
-#define pair_cadr(p)          pair_car(pair_cdr(p))
-#define pair_cdar(p)          pair_cdr(pair_car(p))
-#define pair_cddr(p)          pair_cdr(pair_cdr(p))
+#if USE_DL
+struct scheme_interface {
+pointer (*cons)(scheme *sc, pointer a, pointer b);
+pointer (*immutable_cons)(scheme *sc, pointer a, pointer b);
+pointer (*mk_integer)(scheme *sc, long num);
+pointer (*mk_real)(scheme *sc, double num);
+pointer (*mk_symbol)(scheme *sc, const char *name);
+pointer (*gensym)(scheme *sc);
+pointer (*mk_string)(scheme *sc, const char *str);
+pointer (*mk_counted_string)(scheme *sc, const char *str, int len);
+pointer (*mk_character)(scheme *sc, int c);
+pointer (*mk_vector)(scheme *sc, int len);
+void (*assign_foreign)(scheme *sc, foreign_func, char *name);
+void (*assign_foreign_env)(scheme *sc, pointer env, foreign_func func, char *name);
+void (*putstr)(scheme *sc, const char *s);
+
+int (*is_string)(pointer p);
+char *(*string_value)(pointer p);
+int (*is_number)(pointer p);
+num (*nvalue)(pointer p);
+long (*ivalue)(pointer p);
+double (*rvalue)(pointer p);
+int (*is_integer)(pointer p);
+int (*is_real)(pointer p);
+int (*is_character)(pointer p);
+long (*charvalue)(pointer p);
+int (*is_vector)(pointer p);
+long (*vector_length)(pointer vec);
+void (*fill_vector)(pointer vec, pointer elem);
+pointer (*vector_elem)(pointer vec, int ielem);
+pointer (*set_vector_elem)(pointer vec, int ielem, pointer newel);
+int (*is_port)(pointer p);
+
+int (*is_pair)(pointer p);
+pointer (*pair_car)(pointer p);
+pointer (*pair_cdr)(pointer p);
+pointer (*set_car)(pointer p, pointer q);
+pointer (*set_cdr)(pointer p, pointer q);
+
+int (*is_symbol)(pointer p);
+char *(*symname)(pointer p);
+int (*hasprop)(pointer p);
+
+int (*is_syntax)(pointer p);
+int (*is_proc)(pointer p);
+int (*is_foreign)(pointer p);
+char *(*syntaxname)(pointer p);
+int (*is_closure)(pointer p);
+int (*is_macro)(pointer p);
+pointer (*closure_code)(pointer p);
+pointer (*closure_env)(pointer p);
+
+int (*is_continuation)(pointer p);
+int (*is_promise)(pointer p);
+int (*is_environment)(pointer p);
+int (*is_immutable)(pointer p);
+};
+#endif
 
 #endif
