@@ -1,7 +1,7 @@
 
 
 
-                       TinySCHEME Version 1.20
+                       TinySCHEME Version 1.21
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -37,9 +37,9 @@ Please read accompanying file license.txt.
      Known bugs
      ----------
 
-     SCM tests reveal a memory allocation error, which has to be fixed.
-     It probably has to do with vectors, so be prepared to do without
-     them if need be.
+     SCM tests had revealed a memory allocation error in the past, but not
+     anymore. It probably had to do with vectors, and version 1.21 probably
+     got rid of it.
 
 
      Things that keep missing, or that need fixing
@@ -148,6 +148,18 @@ Please read accompanying file license.txt.
 	  sanitized. Symbol interning is now correct. Arithmetic functions
 	  have been corrected. APPLY, MAP, FOR-EACH, numeric comparison
 	  functions fixed. String reader/writer understands \xAA notation.
+     Version 1.21
+          Jason Felice submitted a radically different datatype representation
+	  which he had implemented. While discussing its pros and cons, it
+	  became apparent that the current implementation of ports suffered
+	  from a grave fault: ports were not garbage-collected. I changed the
+	  ports to be heap-allocated, which enabled the use of string ports
+	  for loading. Jason also fixed errors in the garbage collection of 
+	  vectors. USE_VERBATIM is gone. "ssp_compiler.c" has a better solution
+	  on HTML generation. A bug involving backslash notation in strings
+	  has been fixed. '-c' flag now executes next argument as a stream of
+	  Scheme commands.
+	  
           
      Scheme Reference
      ----------------
@@ -349,31 +361,15 @@ Please read accompanying file license.txt.
           Obsolete procedures
      (print-width <object>)          
      
-     Verbatim comments
-     -----------------
-
-     The rest of the line following the '|' character is output verbatim
-     to current output. This can be put to good use in HTML scripts, or
-     to output messages to the user loading a file.
-
-          |Content-type: text/html
-          |
-          |<html><body>
-          |3 + 5 is:
-          (write (+ 3 5))
-          |<br></body></html>
-
-     Verbatim comments must be enabled by defining USE_VERBATIM=1
-
-
      Programmer's Reference
      ----------------------
 
      The interpreter state is initialized with "scheme_init".
      Custom memory allocation routines can be installed with an alternate
      initialization function: "scheme_init_custom_alloc". 
-     Files can be loaded with "scheme_load".
-     It is a good idea to "scheme_load" init.scm at this point.
+     Files can be loaded with "scheme_load_file". Strings containing Scheme
+     code can be loaded with "scheme_load_string". It is a good idea to 
+     "scheme_load" init.scm before anything else.
 
      External data for keeping external state (of use to foreign functions)
      can be installed with "scheme_set_external_data".
@@ -437,13 +433,23 @@ Please read accompanying file license.txt.
      Standalone
      ----------
 
-     Usage: tinyscheme [-? | <file1> <file2> ... | -1 <file> <arg1> <arg2> ...]
+     Usage: tinyscheme -? 
+     or:    tinyscheme [<file1> <file2> ...] 
+     followed by
+	       -1 <file> [<arg1> <arg2> ...]
+	       -c <Scheme commands> [<arg1> <arg2> ...]
      assuming that the executable is named tinyscheme.
 
      Use - in the place of a filename to denote stdin.
      The -1 flag is meant for #! usage in shell scripts. If you specify
           #! /somewhere/tinyscheme -1
-     then tinyscheme will be called to process the file.
+     then tinyscheme will be called to process the file. For example, the
+     following script echoes the Scheme list of its arguments.
+
+	       #! /somewhere/tinyscheme -1
+	       (display *args*)
+
+     The -c flag permits execution of arbitrary Scheme code.
 
      Customizing
      -----------
@@ -473,9 +479,6 @@ Please read accompanying file license.txt.
      USE_TRACING
      To enable use of TRACING.
 
-     USE_VERBATIM
-     Enable verbatim comments. (see "Verbatim comments")
-
      USE_COLON_HOOK
      Enable use of qualified identifiers. (see "Colon Qualifiers - Packages")
      Defining this as 0 has the rather drastic consequence that any code using
@@ -495,7 +498,7 @@ Please read accompanying file license.txt.
      USE_NO_FEATURES
      Shortcut to disable USE_MATH, USE_CHAR_CLASSIFIERS, USE_ASCII_NAMES,
      USE_STRING_PORTS, USE_ERROR_HOOK, USE_TRACING, USE_COLON_HOOK,
-     USE_VERBATIM ,USE_DL.
+     USE_DL.
 
      Build instructions
      ------------------
@@ -665,9 +668,6 @@ Please read accompanying file license.txt.
      (see "Standalone")
 
      Running out of memory is now handled.
-
-     A new "verbatim" comment that echoes its text, facilitates HTML
-     scripting. (see "Verbatim comments")
 
      The user can add foreign functions in C. (see "Foreign Functions")
 
