@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 2 4
+/* T I N Y S C H E M E    1 . 2 5
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -101,7 +101,7 @@ static const char *strlwr(char *s) {
 enum {
   T_STRING=1,
   T_NUMBER=2,
-  T_SYNTAX=3,
+  T_SYMBOL=3,
   T_PROC=4,
   T_PAIR=5,
   T_CLOSURE=6,
@@ -109,14 +109,18 @@ enum {
   T_FOREIGN=8,
   T_CHARACTER=9,
   T_PORT=10,
-  T_VECTOR=11
+  T_VECTOR=11,
+  T_MACRO=12,
+  T_PROMISE=13,
+  T_ENVIRONMENT=14,
+  T_LAST_SYSTEM_TYPE=14
 };
 
+/* ADJ is enough slack to align cells in a TYPE_BITS-bit boundary */
+#define ADJ 32
+#define TYPE_BITS 5
 #define T_MASKTYPE      31    /* 0000000000011111 */
-#define T_ENVIRONMENT  512    /* 0000001000000000 */
-#define T_SYMBOL      1024    /* 0000010000000000 */
-#define T_MACRO       2048    /* 0000100000000000 */
-#define T_PROMISE     4096    /* 0001000000000000 */
+#define T_SYNTAX      4096    /* 0001000000000000 */
 #define T_IMMUTABLE   8192    /* 0010000000000000 */
 #define T_ATOM       16384    /* 0100000000000000 */   /* only for gc */
 #define CLRATOM      49151    /* 1011111111111111 */   /* only for gc */
@@ -185,12 +189,12 @@ INTERFACE pointer pair_cdr(pointer p)   { return cdr(p); }
 INTERFACE pointer set_car(pointer p, pointer q) { return car(p)=q; }
 INTERFACE pointer set_cdr(pointer p, pointer q) { return cdr(p)=q; }
 
-INTERFACE INLINE int is_symbol(pointer p)   { return (typeflag(p)&T_SYMBOL); }
+INTERFACE INLINE int is_symbol(pointer p)   { return (type(p)==T_SYMBOL); }
 INTERFACE INLINE char *symname(pointer p)   { return strvalue(car(p)); }
 INTERFACE INLINE int hasprop(pointer p)     { return (typeflag(p)&T_SYMBOL); }
 #define symprop(p)       cdr(p)
 
-INTERFACE INLINE int is_syntax(pointer p)   { return (type(p)==T_SYNTAX); }
+INTERFACE INLINE int is_syntax(pointer p)   { return (typeflag(p)&T_SYNTAX); }
 INTERFACE INLINE int is_proc(pointer p)     { return (type(p)==T_PROC); }
 INTERFACE INLINE int is_foreign(pointer p)  { return (type(p)==T_FOREIGN); }
 INTERFACE INLINE char *syntaxname(pointer p) { return strvalue(car(p)); }
@@ -198,7 +202,7 @@ INTERFACE INLINE char *syntaxname(pointer p) { return strvalue(car(p)); }
 static const char *procname(pointer x);
 
 INTERFACE INLINE int is_closure(pointer p)  { return (type(p)==T_CLOSURE); }
-INTERFACE INLINE int is_macro(pointer p)    { return (typeflag(p)&T_MACRO); }
+INTERFACE INLINE int is_macro(pointer p)    { return (type(p)==T_MACRO); }
 INTERFACE INLINE pointer closure_code(pointer p)   { return car(p); }
 INTERFACE INLINE pointer closure_env(pointer p)    { return cdr(p); }
 
@@ -206,11 +210,10 @@ INTERFACE INLINE int is_continuation(pointer p)    { return (type(p)==T_CONTINUA
 #define cont_dump(p)     cdr(p)
 
 /* To do: promise should be forced ONCE only */
-INTERFACE INLINE int is_promise(pointer p)  { return (typeflag(p)&T_PROMISE); }
-#define setpromise(p)    typeflag(p) |= T_PROMISE
+INTERFACE INLINE int is_promise(pointer p)  { return (type(p)==T_PROMISE); }
 
-INTERFACE INLINE int is_environment(pointer p) { return (typeflag(p)&T_ENVIRONMENT); }
-#define setenvironment(p)    typeflag(p) |= T_ENVIRONMENT
+INTERFACE INLINE int is_environment(pointer p) { return (type(p)==T_ENVIRONMENT); }
+#define setenvironment(p)    typeflag(p) = T_ENVIRONMENT
 
 #define is_atom(p)       (typeflag(p)&T_ATOM)
 #define setatom(p)       typeflag(p) |= T_ATOM
@@ -535,17 +538,29 @@ static int alloc_cellseg(scheme *sc, int n) {
      pointer newp;
      pointer last;
      pointer p;
+     char *cp;
      long i;
      int k;
+     int adj=ADJ;
+
+     if(adj<sizeof(struct cell)) {
+       adj=sizeof(struct cell);
+     }
 
      for (k = 0; k < n; k++) {
           if (sc->last_cell_seg >= CELL_NSEGMENT - 1)
                return k;
-          newp = (pointer) sc->malloc(CELL_SEGSIZE * sizeof(struct cell));
-          if (newp == (pointer) 0)
+          cp = (char*) sc->malloc(CELL_SEGSIZE * sizeof(struct cell)+adj);
+          if (cp == 0)
                return k;
+	  i = ++sc->last_cell_seg ;
+	  sc->alloc_seg[i] = cp;
+	  /* adjust in TYPE_BITS-bit boundary */
+	  if(((int)cp)%adj!=0) {
+	    cp=(char*)(adj*((long)cp/adj+1));
+	  }
         /* insert new segment in address order */
-        i = ++sc->last_cell_seg ;
+	  newp=(pointer)cp;
         sc->cell_seg[i] = newp;
         while (i > 0 && sc->cell_seg[i - 1] > sc->cell_seg[i]) {
               p = sc->cell_seg[i];
@@ -1601,6 +1616,8 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
           p = "#<MACRO>";
      } else if (is_closure(l)) {
           p = "#<CLOSURE>";
+     } else if (is_promise(l)) {
+          p = "#<PROMISE>";
      } else if (is_foreign(l)) {
           p = sc->strbuff;
           sprintf(p, "#<FOREIGN PROCEDURE %ld>", procnum(l));
@@ -2156,7 +2173,9 @@ static pointer opexe_0(scheme *sc, int op) {
           } else if (is_foreign(sc->code)) {
                x=sc->code->_object._ff(sc,sc->args);
                s_return(sc,x);
-          } else if (is_closure(sc->code)) { /* CLOSURE */
+          } else if (is_closure(sc->code) || is_macro(sc->code) 
+		     || is_promise(sc->code)) { /* CLOSURE */
+	    /* Should not accept promise */
                /* make environment */
                sc->envir = immutable_cons(sc, sc->NIL, closure_env(sc->code));
                setenvironment(sc->envir);
@@ -2427,7 +2446,7 @@ static pointer opexe_1(scheme *sc, int op) {
 
      case OP_DELAY:      /* delay */
           x = mk_closure(sc, cons(sc, sc->NIL, sc->code), sc->envir);
-          setpromise(x);
+          typeflag(x)=T_PROMISE;
           s_return(sc,x);
 
      case OP_AND0:       /* and */
@@ -2476,7 +2495,7 @@ static pointer opexe_1(scheme *sc, int op) {
      case OP_C1STREAM:   /* cons-stream */
           sc->args = sc->value;  /* save sc->value to register sc->args for gc */
           x = mk_closure(sc, cons(sc, sc->NIL, sc->code), sc->envir);
-          setpromise(x);
+          typeflag(x)=T_PROMISE;
           s_return(sc,cons(sc, sc->args, x));
 
      case OP_MACRO0:     /* macro */
@@ -2494,7 +2513,7 @@ static pointer opexe_1(scheme *sc, int op) {
           s_goto(sc,OP_EVAL);
 
      case OP_MACRO1:     /* macro */
-          typeflag(sc->value) |= T_MACRO;
+          typeflag(sc->value) = T_MACRO;
           for (x = car(sc->envir); x != sc->NIL; x = cdr(x)) {
                if (caar(x) == sc->code) {
                     break;
@@ -3093,6 +3112,7 @@ static pointer opexe_4(scheme *sc, int op) {
      case OP_FORCE:      /* force */
           sc->code = car(sc->args);
           if (is_promise(sc->code)) {
+	    /* Should change type to closure here */
                s_save(sc, OP_SAVE_FORCED, sc->NIL, sc->code);
                sc->args = sc->NIL;
                s_goto(sc,OP_APPLY);
@@ -4257,7 +4277,7 @@ void scheme_deinit(scheme *sc) {
   gc(sc,sc->NIL,sc->NIL);
 
   for(i=0; i<=sc->last_cell_seg; i++) {
-    sc->free(sc->cell_seg[i]);
+    sc->free(sc->alloc_seg[i]);
   }
 }
 
