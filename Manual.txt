@@ -1,6 +1,6 @@
 
 
-                       TinySCHEME Version 1.32
+                       TinySCHEME Version 1.34
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
