@@ -1,7 +1,7 @@
 
 
 
-                       TinySCHEME Version 1.27
+                       TinySCHEME Version 1.28
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -192,6 +192,16 @@ Please read accompanying file license.txt.
           back to the string, which obviously didn't work for const strings.
           'Substring' didn't check for crossed start and end indices. Defines
           changed to restore the ability to compile under MSVC.
+     Version 1.28
+	  Many people have contacted me with bugfixes or remarks in
+	  the three months I was inactive. A lot of them spotted that 
+	  scheme_deinit crashed while reporting gc results. They suggested
+	  that sc->outport be set to NIL in scheme_deinit, which I did.
+	  Dennis Taylor remarked that OP_VALUEPRINT reset sc->value instead
+	  of preserving it. He submitted a modification which I adopted 
+	  partially. David Hovemeyer sent me many little changes, that you
+	  will find in version 1.28, and Partice Stoessel modified the 
+	  float reader to conform to R5RS.
           
      Scheme Reference
      ----------------

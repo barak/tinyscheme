@@ -31,6 +31,11 @@
 # define USE_DL 0
 #endif
 
+#if USE_DL
+# define USE_INTERFACE 1
+#endif
+
+
 #ifndef USE_MATH         /* If math support is needed */
 # define USE_MATH 1
 #endif
@@ -74,6 +79,10 @@
 
 #ifndef INLINE
 # define INLINE
+#endif
+
+#ifndef USE_INTERFACE
+# define USE_INTERFACE 0
 #endif
 
 typedef struct scheme scheme;
@@ -279,7 +288,7 @@ int is_environment(pointer p);
 int is_immutable(pointer p);
 void setimmutable(pointer p);
 
-#if USE_DL
+#if USE_INTERFACE
 struct scheme_interface {
 void (*scheme_define)(scheme *sc, pointer env, pointer symbol, pointer value);
 pointer (*cons)(scheme *sc, pointer a, pointer b);
