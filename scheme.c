@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 3 5
+/* T I N Y S C H E M E    1 . 3 6
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -56,7 +56,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.35"
+#define banner "TinyScheme 1.36"
 
 #include <string.h>
 #include <stdlib.h>
@@ -568,7 +568,7 @@ static int alloc_cellseg(scheme *sc, int n) {
 	  sc->alloc_seg[i] = cp;
 	  /* adjust in TYPE_BITS-bit boundary */
 	  if(((unsigned)cp)%adj!=0) {
-	    cp=(char*)(adj*((long)cp/adj+1));
+	    cp=(char*)(adj*((unsigned long)cp/adj+1));
 	  }
         /* insert new segment in address order */
 	  newp=(pointer)cp;
@@ -1454,67 +1454,67 @@ static pointer readstrexp(scheme *sc) {
       return sc->F;
     }
     switch(state) {
-    case st_ok:
-      switch(c) {
-      case '\\':
-	state=st_bsl;
-	break;
-      case '"':
-	*p=0;
-	return mk_counted_string(sc,sc->strbuff,p-sc->strbuff);
-      default:
-	*p++=c;
-	break;
-      }
-      break;
-    case st_bsl:
-      switch(c) {
-      case 'x':
-      case 'X':
-	state=st_x1;
-	c1=0;
-	break;
-      case 'n':
-	*p++='\n';
-	state=st_ok;
-	break;
-      case 't':
-	*p++='\t';
-	state=st_ok;
-	break;
-      case 'r':
-	*p++='\r';
-	state=st_ok;
-	break;
-      case '"':
-	*p++='"';
-	state=st_ok;
-	break;
-      default:
-	*p++=c;
-	state=st_ok;
-	break;
-      }
-      break;
-    case st_x1:
-    case st_x2:
-      c=toupper(c);
-      if(c>='0' && c<='F') {
-	if(c<='9') {
-	  c1=(c1<<4)+c-'0';
-	} else {
-	  c1=(c1<<4)+c-'A'+10;
-	}
-	if(state==st_x1) {
-	  state=st_x2;
-	} else {
-	  *p++=c1;
-	  state=st_ok;
-	}
-      } else {
-	return sc->F;
-      }
-      break;
+        case st_ok:
+            switch(c) {
+                case '\\':
+	                state=st_bsl;
+	                break;
+                case '"':
+	                *p=0;
+	                return mk_counted_string(sc,sc->strbuff,p-sc->strbuff);
+                default:
+	                *p++=c;
+	                break;
+            }
+            break;
+        case st_bsl:
+            switch(c) {
+                case 'x':
+                case 'X':
+	                state=st_x1;
+	                c1=0;
+	                break;
+                case 'n':
+	                *p++='\n';
+	                state=st_ok;
+	                break;
+                case 't':
+	                *p++='\t';
+	                state=st_ok;
+	                break;
+                case 'r':
+	                *p++='\r';
+	                state=st_ok;
+	                break;
+                case '"':
+	                *p++='"';
+	                state=st_ok;
+	                break;
+                default:
+	                *p++=c;
+	                state=st_ok;
+	                break;
+            }
+            break;
+        case st_x1:
+        case st_x2:
+            c=toupper(c);
+            if(c>='0' && c<='F') {
+	            if(c<='9') {
+	                c1=(c1<<4)+c-'0';
+	            } else {
+	                c1=(c1<<4)+c-'A'+10;
+	            }
+	            if(state==st_x1) {
+	                state=st_x2;
+	            } else {
+	                *p++=c1;
+	                state=st_ok;
+	            }
+            } else {
+	            return sc->F;
+            }
+            break;
     }
   }
 }
@@ -1567,18 +1567,20 @@ static int token(scheme *sc) {
      case BACKQUOTE:
           return (TOK_BQUOTE);
      case ',':
-          if ((c=inchar(sc)) == '@')
+         if ((c=inchar(sc)) == '@') {
                return (TOK_ATMARK);
-          else {
+         } else {
                backchar(sc,c);
                return (TOK_COMMA);
-          }
+         }
      case '#':
           c=inchar(sc);
           if (c == '(') {
                return (TOK_VEC);
           } else if(c == '!') {
-               return TOK_COMMENT;
+               while ((c=inchar(sc)) != '\n' && c!=EOF)
+                   ;
+               return (token(sc));
           } else {
                backchar(sc,c);
                if(is_one_of(" tfodxb\\",c)) {
@@ -2373,6 +2375,9 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           s_return(sc,car(sc->code));
 
      case OP_DEF0:  /* define */
+          if(is_immutable(car(sc->code)))
+            Error_1(sc,"define: unable to alter immutable", car(sc->code));
+
           if (is_pair(car(sc->code))) {
                x = caar(sc->code);
                sc->code = cons(sc, sc->LAMBDA, cons(sc, cdar(sc->code), cdr(sc->code)));
@@ -2404,6 +2409,8 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           s_retbool(find_slot_in_env(sc,x,car(sc->args),1)!=sc->NIL);
 
      case OP_SET0:       /* set! */
+          if(is_immutable(car(sc->code)))
+                Error_1(sc,"set!: unable to alter immutable variable",car(sc->code));
           s_save(sc,OP_SET1, sc->NIL, car(sc->code));
           sc->code = cadr(sc->code);
           s_goto(sc,OP_EVAL);
@@ -3555,13 +3562,17 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
                } else {
                     s_return(sc,sc->EOF_OBJ);
                }
+/*
+ * Commented out because we now skip comments in the scanner
+ * 
           case TOK_COMMENT: {
                int c;
                while ((c=inchar(sc)) != '\n' && c!=EOF)
                     ;
                sc->tok = token(sc);
                s_goto(sc,OP_RDSEXPR);
-          }
+          } 
+*/
           case TOK_VEC:
                s_save(sc,OP_RDVEC,sc->NIL,sc->NIL);
                /* fall through */
@@ -3630,12 +3641,15 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
      case OP_RDLIST: {
           sc->args = cons(sc, sc->value, sc->args);
           sc->tok = token(sc);
-          if (sc->tok == TOK_COMMENT) {
+/* We now skip comments in the scanner
+
+          while (sc->tok == TOK_COMMENT) {
                int c;
                while ((c=inchar(sc)) != '\n' && c!=EOF)
                     ;
                sc->tok = token(sc);
           }
+*/
           if (sc->tok == TOK_RPAREN) {
                int c = inchar(sc);
                if (c != '\n') backchar(sc,c);
@@ -4355,7 +4369,7 @@ void scheme_call(scheme *sc, pointer func, pointer args) {
 
 #if STANDALONE
 
-#ifdef macintosh
+#if defined(macintosh) && !defined (OSX)
 int main()
 {
      extern MacTS_main(int argc, char **argv);
