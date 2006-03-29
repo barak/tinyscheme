@@ -1,5 +1,7 @@
      Change Log
      ----------
+     Version 1.37
+      Joe Buehler submitted reserve_cells.
      Version 1.36
 	  Joe Buehler fixed a patch in the allocator.
 	  Alexander Shendi moved the comment handling in the scanner, which 
