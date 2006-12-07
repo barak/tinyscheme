@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 3 7
+/* T I N Y S C H E M E    1 . 3 8
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -29,7 +29,9 @@
 
 #if USE_STRCASECMP
 #include <strings.h>
-#define stricmp strcasecmp
+# ifndef __APPLE__
+#  define stricmp strcasecmp
+# endif
 #endif
 
 /* Used for documentation purposes, to signal functions in 'interface' */
@@ -56,11 +58,11 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.37"
+#define banner "TinyScheme 1.38"
 
 #include <string.h>
 #include <stdlib.h>
-#ifndef macintosh
+#ifndef __APPLE__
 # include <malloc.h>
 #else
 static int stricmp(const char *s1, const char *s2)
@@ -77,7 +79,7 @@ static int stricmp(const char *s1, const char *s2)
   } while (c1 != 0);
   return 0;
 }
-#endif /* macintosh */
+#endif /* __APPLE__ */
 
 #if USE_STRLWR
 static const char *strlwr(char *s) {
@@ -1382,10 +1384,12 @@ static int inchar(scheme *sc) {
   c=basic_inchar(pt);
   if(c==EOF && sc->inport==sc->loadport && sc->file_i!=0) {
     file_pop(sc);
-    if(sc->nesting!=0) {
-      return EOF;
-    }
-    goto again;
+      if(sc->nesting!=0) {
+        return EOF;
+      } else {
+        return '\n';
+      }
+      goto again;
   }
   return c;
 }
@@ -1473,7 +1477,7 @@ static pointer readstrexp(scheme *sc) {
   char *p = sc->strbuff;
   int c;
   int c1=0;
-  enum { st_ok, st_bsl, st_x1, st_x2} state=st_ok;
+  enum { st_ok, st_bsl, st_x1, st_x2, st_oct1, st_oct2, st_oct3 } state=st_ok;
   
   for (;;) {
     c=inchar(sc);
@@ -1496,6 +1500,17 @@ static pointer readstrexp(scheme *sc) {
             break;
         case st_bsl:
             switch(c) {
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                        state=st_oct1;
+                        c1=c-'0';
+                        break;
                 case 'x':
                 case 'X':
 	                state=st_x1;
@@ -1542,6 +1557,37 @@ static pointer readstrexp(scheme *sc) {
 	            return sc->F;
             }
             break;
+        case st_oct1:
+        case st_oct2:
+        case st_oct3:
+            if (c < '0' || c > '7')
+            {
+                   if (state==st_oct1)
+                   return sc->F;
+
+                   *p++=c1;
+                   backchar(sc, c);
+                   state=st_ok;
+            }
+            else
+            {
+                   c1=(c1<<3)+(c-'0');
+                   switch (state)
+                   {
+                   case st_oct1:
+                        state=st_oct2;
+                        break;
+                   case st_oct2:
+                        state=st_oct3;
+                        break;
+                   default:
+                        *p++=c1;
+                        state=st_ok;
+                        break;
+                   }
+            }
+            break;
+
     }
   }
 }
@@ -4399,7 +4445,7 @@ void scheme_call(scheme *sc, pointer func, pointer args) {
 
 #if STANDALONE
 
-#if defined(macintosh) && !defined (OSX)
+#if defined(__APPLE__) && !defined (OSX)
 int main()
 {
      extern MacTS_main(int argc, char **argv);
