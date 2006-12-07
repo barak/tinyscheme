@@ -14,7 +14,9 @@
 
 #ifndef _MSC_VER 
 # define USE_STRCASECMP 1 
-# define USE_STRLWR 1 
+# ifndef USE_STRLWR
+#   define USE_STRLWR 1 
+# endif
 # define SCHEME_EXPORT
 #else 
 # define USE_STRCASECMP 0 
