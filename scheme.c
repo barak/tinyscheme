@@ -328,7 +328,6 @@ static void finalize_cell(scheme *sc, pointer a);
 static int count_consecutive_cells(pointer x, int needed);
 static pointer find_slot_in_env(scheme *sc, pointer env, pointer sym, int all);
 static pointer mk_number(scheme *sc, num n);
-static pointer mk_empty_string(scheme *sc, int len, char fill);
 static char *store_string(scheme *sc, int len, const char *str, char fill);
 static pointer mk_vector(scheme *sc, int len);
 static pointer mk_atom(scheme *sc, char *q);
@@ -359,8 +358,6 @@ static pointer mk_continuation(scheme *sc, pointer d);
 static pointer reverse(scheme *sc, pointer a);
 static pointer reverse_in_place(scheme *sc, pointer term, pointer list);
 static pointer append(scheme *sc, pointer a, pointer b);
-static int list_length(scheme *sc, pointer a);
-static int eqv(pointer a, pointer b);
 static void dump_stack_mark(scheme *);
 static pointer opexe_0(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_1(scheme *sc, enum scheme_opcodes op);
@@ -922,7 +919,7 @@ INTERFACE pointer mk_counted_string(scheme *sc, const char *str, int len) {
      return (x);
 }
 
-static pointer mk_empty_string(scheme *sc, int len, char fill) {
+INTERFACE pointer mk_empty_string(scheme *sc, int len, char fill) {
      pointer x = get_cell(sc, sc->NIL, sc->NIL);
 
      strvalue(x) = store_string(sc,len,0,fill);
@@ -1897,7 +1894,7 @@ static pointer append(scheme *sc, pointer a, pointer b) {
 }
 
 /* equivalence of atoms */
-static int eqv(pointer a, pointer b) {
+int eqv(pointer a, pointer b) {
      if (is_string(a)) {
           if (is_string(b))
                return (strvalue(a) == strvalue(b));
@@ -3231,7 +3228,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
      return sc->T;
 }
 
-static int list_length(scheme *sc, pointer a) {
+int list_length(scheme *sc, pointer a) {
      int v=0;
      pointer x;
      for (x = a, v = 0; is_pair(x); x = cdr(x)) {
