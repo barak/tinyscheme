@@ -4425,7 +4425,7 @@ void scheme_apply0(scheme *sc, const char *procname) {
      pointer carx=mk_symbol(sc,procname);
      pointer cdrx=sc->NIL;
 
-     dump_stack_reset(sc);
+     s_save(sc,OP_QUIT,sc->NIL,sc->NIL);
      sc->envir = sc->global_env;
      sc->code = cons(sc,carx,cdrx);
      sc->interactive_repl=0;
@@ -4434,7 +4434,7 @@ void scheme_apply0(scheme *sc, const char *procname) {
      }
 
 void scheme_call(scheme *sc, pointer func, pointer args) {
-   dump_stack_reset(sc);
+   s_save(sc,OP_QUIT,sc->NIL,sc->NIL);
    sc->envir = sc->global_env;
    sc->args = args;
    sc->code = func;
