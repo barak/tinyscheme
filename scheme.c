@@ -4418,27 +4418,38 @@ void scheme_define(scheme *sc, pointer envir, pointer symbol, pointer value) {
 }
 
 #if !STANDALONE
-void scheme_apply0(scheme *sc, const char *procname) {
-     pointer carx=mk_symbol(sc,procname);
-     pointer cdrx=sc->NIL;
+pointer scheme_apply0(scheme *sc, const char *procname)
+{ return scheme_eval(sc, cons(sc,mk_symbol(sc,procname),sc->NIL)); }
 
-     s_save(sc,OP_QUIT,sc->NIL,sc->NIL);
-     sc->envir = sc->global_env;
-     sc->code = cons(sc,carx,cdrx);
-     sc->interactive_repl=0;
-     sc->retcode=0;
-     Eval_Cycle(sc,OP_EVAL);
-     }
-
-void scheme_call(scheme *sc, pointer func, pointer args) {
-   s_save(sc,OP_QUIT,sc->NIL,sc->NIL);
-   sc->envir = sc->global_env;
-   sc->args = args;
-   sc->code = func;
-   sc->interactive_repl =0;
-   sc->retcode = 0;
-   Eval_Cycle(sc, OP_APPLY);
+/* "func" and "args" are assumed to be already eval'ed. */
+pointer scheme_call(scheme *sc, pointer func, pointer args)
+{
+  int old_repl = sc->interactive_repl;
+  sc->interactive_repl = 0;
+  s_save(sc,OP_QUIT,sc->NIL,sc->NIL);
+  sc->envir = sc->global_env;
+  sc->args = args;
+  sc->code = func;
+  sc->retcode = 0;
+  Eval_Cycle(sc, OP_APPLY);
+  sc->interactive_repl = old_repl;
+  return sc->value;
 }
+
+pointer scheme_eval(scheme *sc, pointer obj)
+{
+  int old_repl = sc->interactive_repl;
+  sc->interactive_repl = 0;
+  s_save(sc,OP_QUIT,sc->NIL,sc->NIL);
+  sc->args = sc->NIL;
+  sc->code = obj;
+  sc->retcode = 0;
+  Eval_Cycle(sc, OP_EVAL);
+  sc->interactive_repl = old_repl;
+  return sc->value;
+}
+
+
 #endif
 
 /* ========== Main ========== */
