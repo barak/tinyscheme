@@ -929,6 +929,7 @@ INTERFACE pointer mk_empty_string(scheme *sc, int len, char fill) {
 
 INTERFACE static pointer mk_vector(scheme *sc, int len) {
      pointer x=get_consecutive_cells(sc,len/2+len%2+1);
+     if(sc->no_memory) { return sc->sink; }
      typeflag(x) = (T_VECTOR | T_ATOM);
      ivalue_unchecked(x)=len;
      set_num_integer(x);
@@ -3166,7 +3167,8 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
                Error_1(sc,"vector: not a proper list:",sc->args);
           }
           vec=mk_vector(sc,len);
-          for (x = sc->args, i = 0; is_pair(x); x = cdr(x), i++) {
+	  if(sc->no_memory) { s_return(sc, sc->sink); }
+	  for (x = sc->args, i = 0; is_pair(x); x = cdr(x), i++) {
                set_vector_elem(vec,i,car(x));
           }
           s_return(sc,vec);
@@ -3183,6 +3185,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
                fill=cadr(sc->args);
           }
           vec=mk_vector(sc,len);
+	  if(sc->no_memory) { s_return(sc, sc->sink); }
           if(fill!=sc->NIL) {
                fill_vector(vec,fill);
           }
