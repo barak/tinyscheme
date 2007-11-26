@@ -1544,7 +1544,7 @@ static pointer readstrexp(scheme *sc) {
   char *p = sc->strbuff;
   int c;
   int c1=0;
-  enum { st_ok, st_bsl, st_x1, st_x2, st_oct1, st_oct2, st_oct3 } state=st_ok;
+  enum { st_ok, st_bsl, st_x1, st_x2, st_oct1, st_oct2 } state=st_ok;
 
   for (;;) {
     c=inchar(sc);
@@ -1626,31 +1626,25 @@ static pointer readstrexp(scheme *sc) {
             break;
         case st_oct1:
         case st_oct2:
-        case st_oct3:
             if (c < '0' || c > '7')
             {
-                   if (state==st_oct1)
-                   return sc->F;
-
                    *p++=c1;
                    backchar(sc, c);
                    state=st_ok;
             }
             else
             {
+                if (state==st_oct2 && c1 >= 32)
+                    return sc->F;
+
                    c1=(c1<<3)+(c-'0');
-                   switch (state)
-                   {
-                   case st_oct1:
+
+                if (state == st_oct1)
                         state=st_oct2;
-                        break;
-                   case st_oct2:
-                        state=st_oct3;
-                        break;
-                   default:
+                else
+                {
                         *p++=c1;
                         state=st_ok;
-                        break;
                    }
             }
             break;
@@ -4552,7 +4546,13 @@ int main(int argc, char **argv) {
     printf(banner);
   }
   if(argc==2 && strcmp(argv[1],"-?")==0) {
-    printf("Usage: %s [-? | <file1> <file2> ... | -1 <file> <arg1> <arg2> ...]\n\tUse - as filename for stdin.\n",argv[0]);
+    printf("Usage: tinyscheme -?\n");
+    printf("or:    tinyscheme [<file1> <file2> ...]\n");
+    printf("followed by\n");
+    printf("          -1 <file> [<arg1> <arg2> ...]\n");
+    printf("          -c <Scheme commands> [<arg1> <arg2> ...]\n");
+    printf("assuming that the executable is named tinyscheme.\n");
+    printf("Use - as filename for stdin.\n");
     return 1;
   }
   if(!scheme_init(&sc)) {
