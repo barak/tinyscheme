@@ -2596,6 +2596,10 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
      case OP_LET1:       /* let (calculate parameters) */
           sc->args = cons(sc, sc->value, sc->args);
           if (is_pair(sc->code)) { /* continue */
+               if (!is_pair(car(sc->code)) || !is_pair(cdar(sc->code))) {
+                    Error_1(sc, "Bad syntax of binding spec in let :",
+                            car(sc->code));
+               }
                s_save(sc,OP_LET1, sc->args, cdr(sc->code));
                sc->code = cadar(sc->code);
                sc->args = sc->NIL;
@@ -2679,6 +2683,10 @@ static pointer opexe_1(scheme *sc, enum scheme_opcodes op) {
      case OP_LET1REC:    /* letrec (calculate parameters) */
           sc->args = cons(sc, sc->value, sc->args);
           if (is_pair(sc->code)) { /* continue */
+               if (!is_pair(car(sc->code)) || !is_pair(cdar(sc->code))) {
+                    Error_1(sc, "Bad syntax of binding spec in letrec :",
+                            car(sc->code));
+               }
                s_save(sc,OP_LET1REC, sc->args, cdr(sc->code));
                sc->code = cadar(sc->code);
                sc->args = sc->NIL;
