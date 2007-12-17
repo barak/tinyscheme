@@ -248,6 +248,7 @@ INTERFACE INLINE void setimmutable(pointer p) { typeflag(p) |= T_IMMUTABLE; }
 #define cddr(p)          cdr(cdr(p))
 #define cadar(p)         car(cdr(car(p)))
 #define caddr(p)         car(cdr(cdr(p)))
+#define cdaar(p)         cdr(car(car(p)))
 #define cadaar(p)        car(cdr(car(car(p))))
 #define cadddr(p)        car(cdr(cdr(cdr(p))))
 #define cddddr(p)        cdr(cdr(cdr(cdr(p))))
@@ -2632,6 +2633,9 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
                new_frame_in_env(sc, sc->envir);
                sc->code = cdr(sc->code);
                s_goto(sc,OP_BEGIN);
+          }
+          if(!is_pair(car(sc->code)) || !is_pair(caar(sc->code)) || !is_pair(cdaar(sc->code))) {
+               Error_1(sc,"Bad syntax of binding spec in let* :",car(sc->code));
           }
           s_save(sc,OP_LET1AST, cdr(sc->code), car(sc->code));
           sc->code = cadaar(sc->code);
