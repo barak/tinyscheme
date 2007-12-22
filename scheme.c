@@ -1432,6 +1432,37 @@ static pointer port_from_string(scheme *sc, char *start, char *past_the_end, int
   return mk_port(sc,pt);
 }
 
+#define BLOCK_SIZE 256
+
+static port *port_rep_from_scratch(scheme *sc) {
+  port *pt;
+  char *start;
+  pt=(port*)sc->malloc(sizeof(port));
+  if(pt==0) {
+    return 0;
+  }
+  start=sc->malloc(BLOCK_SIZE);
+  if(start==0) {
+    return 0;
+  }
+  memset(start,' ',BLOCK_SIZE-1);
+  start[BLOCK_SIZE-1]='\0';
+  pt->kind=port_string|port_output|port_srfi6;
+  pt->rep.string.start=start;
+  pt->rep.string.curr=start;
+  pt->rep.string.past_the_end=start+BLOCK_SIZE-1;
+  return pt;
+}
+
+static pointer port_from_scratch(scheme *sc) {
+  port *pt;
+  pt=port_rep_from_scratch(sc);
+  if(pt==0) {
+    return sc->NIL;
+  }
+  return mk_port(sc,pt);
+}
+
 static void port_close(scheme *sc, pointer p, int flag) {
   port *pt=p->_object._port;
   pt->kind&=~flag;
@@ -1489,6 +1520,25 @@ static void backchar(scheme *sc, int c) {
   }
 }
 
+static int realloc_port_string(scheme *sc, port *p)
+{
+  char *start=p->rep.string.start;
+  size_t new_size=p->rep.string.past_the_end-start+1+BLOCK_SIZE;
+  char *str=sc->malloc(new_size);
+  if(str) {
+    memset(str,' ',new_size-1);
+    str[new_size-1]='\0';
+    strcpy(str,start);
+    p->rep.string.start=str;
+    p->rep.string.past_the_end=str+new_size-1;
+    p->rep.string.curr-=start-str;
+    sc->free(start);
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 INTERFACE void putstr(scheme *sc, const char *s) {
   port *pt=sc->outport->_object._port;
   if(pt->kind&port_file) {
@@ -1497,6 +1547,8 @@ INTERFACE void putstr(scheme *sc, const char *s) {
     for(;*s;s++) {
       if(pt->rep.string.curr!=pt->rep.string.past_the_end) {
     *pt->rep.string.curr++=*s;
+      } else if(pt->kind&port_srfi6&&realloc_port_string(sc,pt)) {
+	  *pt->rep.string.curr++=*s;
       }
     }
   }
@@ -1510,6 +1562,8 @@ static void putchars(scheme *sc, const char *s, int len) {
     for(;len;len--) {
       if(pt->rep.string.curr!=pt->rep.string.past_the_end) {
     *pt->rep.string.curr++=*s++;
+      } else if(pt->kind&port_srfi6&&realloc_port_string(sc,pt)) {
+	  *pt->rep.string.curr++=*s++;
       }
     }
   }
@@ -1522,6 +1576,8 @@ INTERFACE void putcharacter(scheme *sc, int c) {
   } else {
     if(pt->rep.string.curr!=pt->rep.string.past_the_end) {
       *pt->rep.string.curr++=c;
+    } else if(pt->kind&port_srfi6&&realloc_port_string(sc,pt)) {
+        *pt->rep.string.curr++=c;
     }
   }
 }
@@ -3602,13 +3658,11 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
 
 #if USE_STRING_PORTS
      case OP_OPEN_INSTRING: /* open-input-string */
-     case OP_OPEN_OUTSTRING: /* open-output-string */
      case OP_OPEN_INOUTSTRING: /* open-input-output-string */ {
           int prop=0;
           pointer p;
           switch(op) {
                case OP_OPEN_INSTRING:     prop=port_input; break;
-               case OP_OPEN_OUTSTRING:    prop=port_output; break;
                case OP_OPEN_INOUTSTRING:  prop=port_input|port_output; break;
           }
           p=port_from_string(sc, strvalue(car(sc->args)),
@@ -3617,6 +3671,43 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
                s_return(sc,sc->F);
           }
           s_return(sc,p);
+     }
+     case OP_OPEN_OUTSTRING: /* open-output-string */ {
+          pointer p;
+	  if(car(sc->args)==sc->NIL) {
+               p=port_from_scratch(sc);
+               if(p==sc->NIL) {
+                    s_return(sc,sc->F);
+               }
+	  } else {
+               p=port_from_string(sc, strvalue(car(sc->args)),
+	                  strvalue(car(sc->args))+strlength(car(sc->args)),
+                          port_output);
+               if(p==sc->NIL) {
+                    s_return(sc,sc->F);
+               }
+	  }
+          s_return(sc,p);
+     }
+     case OP_GET_OUTSTRING: /* get-output-string */ {
+          port *p;
+
+	  if ((p=car(sc->args)->_object._port)->kind&port_string) {
+	       off_t size;
+	       char *str;
+
+	       size=p->rep.string.curr-p->rep.string.start+1;
+               if(str=sc->malloc(size)) {
+                    pointer s;
+
+                    memcpy(str,p->rep.string.start,size-1);
+	            str[size-1]='\0';
+	            s=mk_string(sc,str);
+	            sc->free(str);
+                    s_return(sc,s);
+	       }
+	  }
+          s_return(sc,sc->F);
      }
 #endif
 
