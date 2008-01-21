@@ -23,6 +23,7 @@
 #if USE_MATH
 # include <math.h>
 #endif
+
 #include <limits.h>
 #include <float.h>
 #include <ctype.h>
@@ -62,9 +63,8 @@
 
 #include <string.h>
 #include <stdlib.h>
-#ifndef __APPLE__
-# include <malloc.h>
-#else
+
+#ifdef __APPLE__
 static int stricmp(const char *s1, const char *s2)
 {
   unsigned char c1, c2;
@@ -93,7 +93,7 @@ static const char *strlwr(char *s) {
 #endif
 
 #ifndef prompt
-# define prompt "> "
+# define prompt "ts> "
 #endif
 
 #ifndef InitFile
@@ -969,7 +969,7 @@ static char *store_string(scheme *sc, int len_str, const char *str, char fill) {
           return sc->strbuff;
      }
      if(str!=0) {
-          strcpy(q, str);
+          snprintf(q, len_str+1, "%s", str);
      } else {
           memset(q, fill, len_str);
           q[len_str]=0;
@@ -1049,7 +1049,7 @@ INTERFACE pointer gensym(scheme *sc) {
      char name[40];
 
      for(; sc->gensym_cnt<LONG_MAX; sc->gensym_cnt++) {
-          sprintf(name,"gensym-%ld",sc->gensym_cnt);
+          snprintf(name,40,"gensym-%ld",sc->gensym_cnt);
 
           /* first check oblist */
           x = oblist_find_by_name(sc, name);
@@ -1134,21 +1134,21 @@ static pointer mk_atom(scheme *sc, char *q) {
 /* make constant */
 static pointer mk_sharp_const(scheme *sc, char *name) {
      long    x;
-     char    tmp[256];
+     char    tmp[STRBUFFSIZE];
 
      if (!strcmp(name, "t"))
           return (sc->T);
      else if (!strcmp(name, "f"))
           return (sc->F);
      else if (*name == 'o') {/* #o (octal) */
-          sprintf(tmp, "0%s", name+1);
+          snprintf(tmp, STRBUFFSIZE, "0%s", name+1);
           sscanf(tmp, "%lo", &x);
           return (mk_integer(sc, x));
      } else if (*name == 'd') {    /* #d (decimal) */
           sscanf(name+1, "%ld", &x);
           return (mk_integer(sc, x));
      } else if (*name == 'x') {    /* #x (hex) */
-          sprintf(tmp, "0x%s", name+1);
+          snprintf(tmp, STRBUFFSIZE, "0x%s", name+1);
           sscanf(tmp, "%lx", &x);
           return (mk_integer(sc, x));
      } else if (*name == 'b') {    /* #b (binary) */
@@ -1166,7 +1166,7 @@ static pointer mk_sharp_const(scheme *sc, char *name) {
                c='\t';
      } else if(name[1]=='x' && name[2]!=0) {
           int c1=0;
-          if(sscanf(name+2,"%x",&c1)==1 && c1<256) {
+          if(sscanf(name+2,"%x",&c1)==1 && c1 < UCHAR_MAX) {
                c=c1;
           } else {
                return sc->NIL;
@@ -1303,7 +1303,7 @@ static void gc(scheme *sc, pointer a, pointer b) {
 
   if (sc->gc_verbose) {
     char msg[80];
-    sprintf(msg,"done: %ld cells were recovered.\n", sc->fcells);
+    snprintf(msg,80,"done: %ld cells were recovered.\n", sc->fcells);
     putstr(sc,msg);
   }
 }
@@ -1479,9 +1479,9 @@ static int inchar(scheme *sc) {
   int c;
   port *pt;
  again:
-  pt=sc->inport->_object._port;
-  c=basic_inchar(pt);
-  if(c==EOF && sc->inport==sc->loadport && sc->file_i!=0) {
+  pt = sc->inport->_object._port;
+  c = basic_inchar(pt);
+  if(c == EOF && sc->inport == sc->loadport && sc->file_i != 0) {
     file_pop(sc);
       if(sc->nesting!=0) {
         return EOF;
@@ -1494,11 +1494,11 @@ static int inchar(scheme *sc) {
 }
 
 static int basic_inchar(port *pt) {
-  if(pt->kind&port_file) {
+  if(pt->kind & port_file) {
     return fgetc(pt->rep.stdio.file);
   } else {
-    if(*pt->rep.string.curr==0
-       || pt->rep.string.curr==pt->rep.string.past_the_end) {
+    if(*pt->rep.string.curr == 0 ||
+       pt->rep.string.curr == pt->rep.string.past_the_end) {
       return EOF;
     } else {
       return *pt->rep.string.curr++;
@@ -1583,11 +1583,13 @@ INTERFACE void putcharacter(scheme *sc, int c) {
 }
 
 /* read characters up to delimiter, but cater to character constants */
-static char   *readstr_upto(scheme *sc, char *delim) {
-  char   *p = sc->strbuff;
+static char *readstr_upto(scheme *sc, char *delim) {
+  char *p = sc->strbuff;
 
-  while (!is_one_of(delim, (*p++ = inchar(sc))));
-  if(p==sc->strbuff+2 && p[-2]=='\\') {
+  while ((p - sc->strbuff < sizeof(sc->strbuff)) &&
+         !is_one_of(delim, (*p++ = inchar(sc))));
+
+  if(p == sc->strbuff+2 && p[-2] == '\\') {
     *p=0;
   } else {
     backchar(sc,p[-1]);
@@ -1605,7 +1607,7 @@ static pointer readstrexp(scheme *sc) {
 
   for (;;) {
     c=inchar(sc);
-    if(c==EOF || p-sc->strbuff>sizeof(sc->strbuff)-1) {
+    if(c == EOF || p-sc->strbuff > sizeof(sc->strbuff)-1) {
       return sc->F;
     }
     switch(state) {
@@ -1862,13 +1864,13 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
           p = "#<EOF>";
      } else if (is_port(l)) {
           p = sc->strbuff;
-          strcpy(p, "#<PORT>");
+          snprintf(p, STRBUFFSIZE, "#<PORT>");
      } else if (is_number(l)) {
           p = sc->strbuff;
           if(num_is_integer(l)) {
-               sprintf(p, "%ld", ivalue_unchecked(l));
+	    snprintf(p, STRBUFFSIZE, "%ld", ivalue_unchecked(l));
           } else {
-               sprintf(p, "%.10g", rvalue_unchecked(l));
+               snprintf(p, STRBUFFSIZE, "%.10g", rvalue_unchecked(l));
           }
      } else if (is_string(l)) {
           if (!f) {
@@ -1888,33 +1890,37 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
           } else {
                switch(c) {
                case ' ':
-                    sprintf(p,"#\\space"); break;
+                    snprintf(p,STRBUFFSIZE,"#\\space"); break;
                case '\n':
-                    sprintf(p,"#\\newline"); break;
+                    snprintf(p,STRBUFFSIZE,"#\\newline"); break;
                case '\r':
-                    sprintf(p,"#\\return"); break;
+                    snprintf(p,STRBUFFSIZE,"#\\return"); break;
                case '\t':
-                    sprintf(p,"#\\tab"); break;
+                    snprintf(p,STRBUFFSIZE,"#\\tab"); break;
                default:
 #if USE_ASCII_NAMES
                     if(c==127) {
-                         strcpy(p,"#\\del"); break;
+                         snprintf(p,STRBUFFSIZE, "#\\del");
+			 break;
                     } else if(c<32) {
-                         strcpy(p,"#\\"); strcat(p,charnames[c]); break;
+                         snprintf(p, STRBUFFSIZE, "#\\%s", charnames[c]);
+			 break;
                     }
 #else
             if(c<32) {
-              sprintf(p,"#\\x%x",c); break;
+              snprintf(p,STRBUFFSIZE,"#\\x%x",c); break;
+	      break;
             }
 #endif
-                    sprintf(p,"#\\%c",c); break;
+                    snprintf(p,STRBUFFSIZE,"#\\%c",c); break;
+		    break;
                }
           }
      } else if (is_symbol(l)) {
           p = symname(l);
      } else if (is_proc(l)) {
           p = sc->strbuff;
-          sprintf(p, "#<%s PROCEDURE %ld>", procname(l),procnum(l));
+          snprintf(p,STRBUFFSIZE,"#<%s PROCEDURE %ld>", procname(l),procnum(l));
      } else if (is_macro(l)) {
           p = "#<MACRO>";
      } else if (is_closure(l)) {
@@ -1923,7 +1929,7 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
           p = "#<PROMISE>";
      } else if (is_foreign(l)) {
           p = sc->strbuff;
-          sprintf(p, "#<FOREIGN PROCEDURE %ld>", procnum(l));
+          snprintf(p,STRBUFFSIZE,"#<FOREIGN PROCEDURE %ld>", procnum(l));
      } else if (is_continuation(l)) {
           p = "#<CONTINUATION>";
      } else {
@@ -2719,7 +2725,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
                s_goto(sc,OP_BEGIN);
           }
      default:
-          sprintf(sc->strbuff, "%d: illegal operator", sc->op);
+          snprintf(sc->strbuff,STRBUFFSIZE,"%d: illegal operator", sc->op);
           Error_0(sc,sc->strbuff);
      }
      return sc->T;
@@ -2930,7 +2936,7 @@ static pointer opexe_1(scheme *sc, enum scheme_opcodes op) {
           s_goto(sc,OP_APPLY);
 
      default:
-          sprintf(sc->strbuff, "%d: illegal operator", sc->op);
+          snprintf(sc->strbuff,STRBUFFSIZE,"%d: illegal operator", sc->op);
           Error_0(sc,sc->strbuff);
      }
      return sc->T;
@@ -3353,7 +3359,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
      }
 
      default:
-          sprintf(sc->strbuff, "%d: illegal operator", sc->op);
+          snprintf(sc->strbuff,STRBUFFSIZE,"%d: illegal operator", sc->op);
           Error_0(sc,sc->strbuff);
      }
      return sc->T;
@@ -3474,7 +3480,7 @@ static pointer opexe_3(scheme *sc, enum scheme_opcodes op) {
      case OP_EQV:        /* eqv? */
           s_retbool(eqv(car(sc->args), cadr(sc->args)));
      default:
-          sprintf(sc->strbuff, "%d: illegal operator", sc->op);
+          snprintf(sc->strbuff,STRBUFFSIZE,"%d: illegal operator", sc->op);
           Error_0(sc,sc->strbuff);
      }
      return sc->T;
@@ -4017,7 +4023,7 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
      }
 
      default:
-          sprintf(sc->strbuff, "%d: illegal operator", sc->op);
+          snprintf(sc->strbuff,STRBUFFSIZE,"%d: illegal operator", sc->op);
           Error_0(sc,sc->strbuff);
 
      }
@@ -4072,7 +4078,7 @@ static pointer opexe_6(scheme *sc, enum scheme_opcodes op) {
      case OP_MACROP:          /* macro? */
           s_retbool(is_macro(car(sc->args)));
      default:
-          sprintf(sc->strbuff, "%d: illegal operator", sc->op);
+          snprintf(sc->strbuff,STRBUFFSIZE,"%d: illegal operator", sc->op);
           Error_0(sc,sc->strbuff);
      }
      return sc->T; /* NOTREACHED */
@@ -4159,21 +4165,21 @@ static void Eval_Cycle(scheme *sc, enum scheme_opcodes op) {
   for (;;) {
     op_code_info *pcd=dispatch_table+sc->op;
     if (pcd->name!=0) { /* if built-in function, check arguments */
-      char msg[512];
+      char msg[STRBUFFSIZE];
       int ok=1;
       int n=list_length(sc,sc->args);
 
       /* Check number of arguments */
       if(n<pcd->min_arity) {
     ok=0;
-    sprintf(msg,"%s: needs%s %d argument(s)",
+    snprintf(msg, STRBUFFSIZE, "%s: needs%s %d argument(s)",
         pcd->name,
         pcd->min_arity==pcd->max_arity?"":" at least",
         pcd->min_arity);
       }
       if(ok && n>pcd->max_arity) {
     ok=0;
-    sprintf(msg,"%s: needs%s %d argument(s)",
+    snprintf(msg, STRBUFFSIZE, "%s: needs%s %d argument(s)",
         pcd->name,
         pcd->min_arity==pcd->max_arity?"":" at most",
         pcd->max_arity);
@@ -4205,7 +4211,7 @@ static void Eval_Cycle(scheme *sc, enum scheme_opcodes op) {
       } while(i<n);
       if(i<n) {
         ok=0;
-        sprintf(msg,"%s: argument %d must be: %s",
+        snprintf(msg, STRBUFFSIZE, "%s: argument %d must be: %s",
             pcd->name,
             i+1,
             tests[j].kind);
