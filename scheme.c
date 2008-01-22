@@ -348,7 +348,7 @@ static int inchar(scheme *sc);
 static void backchar(scheme *sc, int c);
 static char   *readstr_upto(scheme *sc, char *delim);
 static pointer readstrexp(scheme *sc);
-static INLINE void skipspace(scheme *sc);
+static INLINE int skipspace(scheme *sc);
 static int token(scheme *sc);
 static void printslashstring(scheme *sc, char *s, int len);
 static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen);
@@ -1340,8 +1340,11 @@ static int file_push(scheme *sc, const char *fname) {
 }
 
 static void file_pop(scheme *sc) {
- sc->nesting=sc->nesting_stack[sc->file_i];
- if(sc->file_i!=0) {
+ if(sc->file_i==0)
+   { sc->top_EOF = 1; }
+ else
+   {
+     sc->nesting=sc->nesting_stack[sc->file_i];
    port_close(sc,sc->loadport,port_input);
    sc->file_i--;
    sc->loadport->_object._port=sc->load_stack+sc->file_i;
@@ -1485,14 +1488,10 @@ static int inchar(scheme *sc) {
  again:
   pt = sc->inport->_object._port;
   c = basic_inchar(pt);
-  if(c == EOF && sc->inport == sc->loadport && sc->file_i != 0) {
+  if(c == EOF && sc->inport == sc->loadport) {
     file_pop(sc);
-      if(sc->nesting!=0) {
-        return EOF;
-      } else {
-        return '\n';
-      }
-      goto again;
+    return EOF;
+    /* NOTREACHED */
   }
   return c;
 }
@@ -1726,19 +1725,26 @@ static INLINE int is_one_of(char *s, int c) {
 }
 
 /* skip white characters */
-static INLINE void skipspace(scheme *sc) {
+static INLINE int skipspace(scheme *sc) {
      int c;
-     while (isspace(c=inchar(sc)))
-          ;
+     do
+       { c=inchar(sc); }
+     while (isspace(c));
+/*      while (isspace(c=inchar(sc))) */
+/*           ; */
      if(c!=EOF) {
           backchar(sc,c);
+	  return 1;
      }
+     else
+       { return EOF; }
 }
 
 /* get token */
 static int token(scheme *sc) {
      int c;
-     skipspace(sc);
+     c = skipspace(sc);
+     if(c == EOF) { return (TOK_EOF); }
      switch (c=inchar(sc)) {
      case EOF:
           return (TOK_EOF);
@@ -1760,7 +1766,10 @@ static int token(scheme *sc) {
      case ';':
            while ((c=inchar(sc)) != '\n' && c!=EOF)
              ;
-           return (token(sc));
+	   if(c == EOF)
+	     { return (TOK_EOF); }
+	   else
+	     { return (token(sc));}
      case '"':
           return (TOK_DQUOTE);
      case BACKQUOTE:
@@ -1779,7 +1788,10 @@ static int token(scheme *sc) {
           } else if(c == '!') {
                while ((c=inchar(sc)) != '\n' && c!=EOF)
                    ;
-               return (token(sc));
+	       if(c == EOF)
+		 { return (TOK_EOF); }
+	       else
+		 { return (token(sc));}
           } else {
                backchar(sc,c);
                if(is_one_of(" tfodxb\\",c)) {
@@ -2384,25 +2396,44 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           if (!file_push(sc,strvalue(car(sc->args)))) {
                Error_1(sc,"unable to open", car(sc->args));
           }
-      else
-        { s_retbool(1); }
+	  else
+	    {
+	      sc->args = mk_integer(sc,sc->file_i);
+	      s_goto(sc,OP_T0LVL);
+	    }
 
      case OP_T0LVL: /* top level */
-          if(file_interactive(sc)) {
-               putstr(sc,"\n");
-          }
-          sc->nesting=0;
-          dump_stack_reset(sc);
-          sc->envir = sc->global_env;
-      sc->save_inport=sc->inport;
-          sc->inport = sc->loadport;
-      s_save(sc,OP_T0LVL, sc->NIL, sc->NIL);
-          s_save(sc,OP_VALUEPRINT, sc->NIL, sc->NIL);
-          s_save(sc,OP_T1LVL, sc->NIL, sc->NIL);
-          if (file_interactive(sc)) {
-              putstr(sc,prompt);
-          }
-          s_goto(sc,OP_READ_INTERNAL);
+       if(file_interactive(sc))
+	 {
+	   sc->envir = sc->global_env;
+	   dump_stack_reset(sc);
+	   putstr(sc,"\n");
+	   putstr(sc,prompt);
+	   s_save(sc,OP_T0LVL, mk_integer(sc,sc->file_i), sc->NIL);
+	 }
+       else
+	 {
+	   /* Each load of any file gets its own top-level loop that
+	      ends when the file has been read.  We detect that by
+	      monitoring sc->file_i. */
+	   pointer depth = sc->args;
+	   if(is_integer(depth) && ivalue(depth) == sc->file_i)
+	     {
+	       s_save(sc,OP_T0LVL, depth, sc->NIL);
+	     }
+	   else
+	     {
+	       s_return(sc,sc->value);
+	       /* NOTREACHED */
+	     }
+	 }
+
+       sc->nesting=0;
+       sc->save_inport=sc->inport;
+       sc->inport = sc->loadport;
+       s_save(sc,OP_VALUEPRINT, sc->NIL, sc->NIL);
+       s_save(sc,OP_T1LVL, sc->NIL, sc->NIL);
+       s_goto(sc,OP_READ_INTERNAL);
 
      case OP_T1LVL: /* top level */
           sc->code = sc->value;
@@ -2412,7 +2443,8 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
      case OP_READ_INTERNAL:       /* internal read */
           sc->tok = token(sc);
           if(sc->tok==TOK_EOF) {
-               if(sc->inport==sc->loadport) {
+               if(sc->top_EOF)
+		 {
                     sc->args=sc->NIL;
                     s_goto(sc,OP_QUIT);
                } else {
@@ -3809,7 +3841,8 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
      case OP_RDSEXPR:
           switch (sc->tok) {
           case TOK_EOF:
-               if(sc->inport==sc->loadport) {
+               if(sc->top_EOF)
+		 {
                     sc->args=sc->NIL;
                     s_goto(sc,OP_QUIT);
                } else {
@@ -4430,6 +4463,7 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   sc->loadport=sc->NIL;
   sc->nesting=0;
   sc->interactive_repl=0;
+  sc->top_EOF = 0;
 
   if (alloc_cellseg(sc,FIRST_CELLSEGS) != FIRST_CELLSEGS) {
     sc->no_memory=1;
@@ -4561,6 +4595,8 @@ void scheme_load_file(scheme *sc, FILE *fin) {
     sc->interactive_repl=1;
   }
   sc->inport=sc->loadport;
+  sc->top_EOF = 0;
+  sc->args = mk_integer(sc,sc->file_i);
   Eval_Cycle(sc, OP_T0LVL);
   typeflag(sc->loadport)=T_ATOM;
   if(sc->retcode==0) {
@@ -4580,6 +4616,8 @@ void scheme_load_string(scheme *sc, const char *cmd) {
   sc->retcode=0;
   sc->interactive_repl=0;
   sc->inport=sc->loadport;
+  sc->top_EOF = 0;
+  sc->args = mk_integer(sc,sc->file_i);
   Eval_Cycle(sc, OP_T0LVL);
   typeflag(sc->loadport)=T_ATOM;
   if(sc->retcode==0) {
