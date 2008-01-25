@@ -1340,17 +1340,12 @@ static int file_push(scheme *sc, const char *fname) {
 }
 
 static void file_pop(scheme *sc) {
- if(sc->file_i==0)
-   { sc->top_EOF = 1; }
- else
+ if(sc->file_i != 0)
    {
      sc->nesting=sc->nesting_stack[sc->file_i];
    port_close(sc,sc->loadport,port_input);
    sc->file_i--;
    sc->loadport->_object._port=sc->load_stack+sc->file_i;
-   if(file_interactive(sc)) {
-     putstr(sc,prompt);
-   }
  }
 }
 
@@ -1485,11 +1480,16 @@ static void port_close(scheme *sc, pointer p, int flag) {
 static int inchar(scheme *sc) {
   int c;
   port *pt;
- again:
+
   pt = sc->inport->_object._port;
+  if(pt->kind & port_saw_EOF)
+    { return EOF; }
   c = basic_inchar(pt);
   if(c == EOF && sc->inport == sc->loadport) {
-    file_pop(sc);
+    /* Instead, set port_saw_EOF */
+    pt->kind |= port_saw_EOF;
+
+    /* file_pop(sc); */
     return EOF;
     /* NOTREACHED */
   }
@@ -2403,34 +2403,36 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
 	    }
 
      case OP_T0LVL: /* top level */
+       /* If we reached the end of file, this loop is done. */
+       if(sc->loadport->_object._port->kind & port_saw_EOF)
+	 {
+	   if(sc->file_i == 0)
+	     {
+	       sc->args=sc->NIL;
+	       s_goto(sc,OP_QUIT);
+	     }
+	   else
+	     {
+	       file_pop(sc);
+	       s_return(sc,sc->value);
+	     }
+	   /* NOTREACHED */
+	 }
+
+       /* If interactive, be nice to user. */
        if(file_interactive(sc))
 	 {
 	   sc->envir = sc->global_env;
 	   dump_stack_reset(sc);
 	   putstr(sc,"\n");
 	   putstr(sc,prompt);
-	   s_save(sc,OP_T0LVL, mk_integer(sc,sc->file_i), sc->NIL);
-	 }
-       else
-	 {
-	   /* Each load of any file gets its own top-level loop that
-	      ends when the file has been read.  We detect that by
-	      monitoring sc->file_i. */
-	   pointer depth = sc->args;
-	   if(is_integer(depth) && ivalue(depth) == sc->file_i)
-	     {
-	       s_save(sc,OP_T0LVL, depth, sc->NIL);
-	     }
-	   else
-	     {
-	       s_return(sc,sc->value);
-	       /* NOTREACHED */
-	     }
 	 }
 
+       /* Set up another iteration of REPL */
        sc->nesting=0;
        sc->save_inport=sc->inport;
        sc->inport = sc->loadport;
+       s_save(sc,OP_T0LVL, sc->NIL, sc->NIL);
        s_save(sc,OP_VALUEPRINT, sc->NIL, sc->NIL);
        s_save(sc,OP_T1LVL, sc->NIL, sc->NIL);
        s_goto(sc,OP_READ_INTERNAL);
@@ -2442,15 +2444,8 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
 
      case OP_READ_INTERNAL:       /* internal read */
           sc->tok = token(sc);
-          if(sc->tok==TOK_EOF) {
-               if(sc->top_EOF)
-		 {
-                    sc->args=sc->NIL;
-                    s_goto(sc,OP_QUIT);
-               } else {
-                    s_return(sc,sc->EOF_OBJ);
-               }
-          }
+          if(sc->tok==TOK_EOF)
+	    { s_return(sc,sc->EOF_OBJ); }
           s_goto(sc,OP_RDSEXPR);
 
      case OP_GENSYM:
@@ -3841,13 +3836,8 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
      case OP_RDSEXPR:
           switch (sc->tok) {
           case TOK_EOF:
-               if(sc->top_EOF)
-		 {
-                    sc->args=sc->NIL;
-                    s_goto(sc,OP_QUIT);
-               } else {
-                    s_return(sc,sc->EOF_OBJ);
-               }
+	    s_return(sc,sc->EOF_OBJ);
+	    /* NOTREACHED */
 /*
  * Commented out because we now skip comments in the scanner
  *
@@ -4463,7 +4453,6 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   sc->loadport=sc->NIL;
   sc->nesting=0;
   sc->interactive_repl=0;
-  sc->top_EOF = 0;
 
   if (alloc_cellseg(sc,FIRST_CELLSEGS) != FIRST_CELLSEGS) {
     sc->no_memory=1;
@@ -4595,7 +4584,6 @@ void scheme_load_file(scheme *sc, FILE *fin) {
     sc->interactive_repl=1;
   }
   sc->inport=sc->loadport;
-  sc->top_EOF = 0;
   sc->args = mk_integer(sc,sc->file_i);
   Eval_Cycle(sc, OP_T0LVL);
   typeflag(sc->loadport)=T_ATOM;
@@ -4616,7 +4604,6 @@ void scheme_load_string(scheme *sc, const char *cmd) {
   sc->retcode=0;
   sc->interactive_repl=0;
   sc->inport=sc->loadport;
-  sc->top_EOF = 0;
   sc->args = mk_integer(sc,sc->file_i);
   Eval_Cycle(sc, OP_T0LVL);
   typeflag(sc->loadport)=T_ATOM;
