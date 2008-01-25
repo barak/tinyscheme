@@ -14,7 +14,8 @@ enum scheme_port_kind {
   port_string=2,
   port_srfi6=4,
   port_input=16,
-  port_output=32
+  port_output=32,
+  port_saw_EOF=64,
 };
 
 typedef struct port {
@@ -58,7 +59,6 @@ func_dealloc free;
 /* return code */
 int retcode;
 int tracing;
-int top_EOF;  /* Have we seen EOF at top level? */
 
 
 #define CELL_SEGSIZE    5000  /* # of cells in one segment */
