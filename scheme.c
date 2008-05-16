@@ -1549,9 +1549,9 @@ INTERFACE void putstr(scheme *sc, const char *s) {
   } else {
     for(;*s;s++) {
       if(pt->rep.string.curr!=pt->rep.string.past_the_end) {
-    *pt->rep.string.curr++=*s;
+      *pt->rep.string.curr++=*s;
       } else if(pt->kind&port_srfi6&&realloc_port_string(sc,pt)) {
-	  *pt->rep.string.curr++=*s;
+      *pt->rep.string.curr++=*s;
       }
     }
   }
@@ -1566,7 +1566,7 @@ static void putchars(scheme *sc, const char *s, int len) {
       if(pt->rep.string.curr!=pt->rep.string.past_the_end) {
     *pt->rep.string.curr++=*s++;
       } else if(pt->kind&port_srfi6&&realloc_port_string(sc,pt)) {
-	  *pt->rep.string.curr++=*s++;
+      *pt->rep.string.curr++=*s++;
       }
     }
   }
@@ -1734,7 +1734,7 @@ static INLINE int skipspace(scheme *sc) {
 /*           ; */
      if(c!=EOF) {
           backchar(sc,c);
-	  return 1;
+      return 1;
      }
      else
        { return EOF; }
@@ -1766,10 +1766,10 @@ static int token(scheme *sc) {
      case ';':
            while ((c=inchar(sc)) != '\n' && c!=EOF)
              ;
-	   if(c == EOF)
-	     { return (TOK_EOF); }
-	   else
-	     { return (token(sc));}
+       if(c == EOF)
+         { return (TOK_EOF); }
+       else
+         { return (token(sc));}
      case '"':
           return (TOK_DQUOTE);
      case BACKQUOTE:
@@ -1788,10 +1788,10 @@ static int token(scheme *sc) {
           } else if(c == '!') {
                while ((c=inchar(sc)) != '\n' && c!=EOF)
                    ;
-	       if(c == EOF)
-		 { return (TOK_EOF); }
-	       else
-		 { return (token(sc));}
+           if(c == EOF)
+         { return (TOK_EOF); }
+           else
+         { return (token(sc));}
           } else {
                backchar(sc,c);
                if(is_one_of(" tfodxb\\",c)) {
@@ -1884,7 +1884,7 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
      } else if (is_number(l)) {
           p = sc->strbuff;
           if(num_is_integer(l)) {
-	    snprintf(p, STRBUFFSIZE, "%ld", ivalue_unchecked(l));
+        snprintf(p, STRBUFFSIZE, "%ld", ivalue_unchecked(l));
           } else {
                snprintf(p, STRBUFFSIZE, "%.10g", rvalue_unchecked(l));
           }
@@ -1917,19 +1917,19 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
 #if USE_ASCII_NAMES
                     if(c==127) {
                          snprintf(p,STRBUFFSIZE, "#\\del");
-			 break;
+             break;
                     } else if(c<32) {
                          snprintf(p, STRBUFFSIZE, "#\\%s", charnames[c]);
-			 break;
+             break;
                     }
 #else
             if(c<32) {
               snprintf(p,STRBUFFSIZE,"#\\x%x",c); break;
-	      break;
+          break;
             }
 #endif
                     snprintf(p,STRBUFFSIZE,"#\\%c",c); break;
-		    break;
+            break;
                }
           }
      } else if (is_symbol(l)) {
@@ -2396,37 +2396,37 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           if (!file_push(sc,strvalue(car(sc->args)))) {
                Error_1(sc,"unable to open", car(sc->args));
           }
-	  else
-	    {
-	      sc->args = mk_integer(sc,sc->file_i);
-	      s_goto(sc,OP_T0LVL);
-	    }
+      else
+        {
+          sc->args = mk_integer(sc,sc->file_i);
+          s_goto(sc,OP_T0LVL);
+        }
 
      case OP_T0LVL: /* top level */
        /* If we reached the end of file, this loop is done. */
        if(sc->loadport->_object._port->kind & port_saw_EOF)
-	 {
-	   if(sc->file_i == 0)
-	     {
-	       sc->args=sc->NIL;
-	       s_goto(sc,OP_QUIT);
-	     }
-	   else
-	     {
-	       file_pop(sc);
-	       s_return(sc,sc->value);
-	     }
-	   /* NOTREACHED */
-	 }
+     {
+       if(sc->file_i == 0)
+         {
+           sc->args=sc->NIL;
+           s_goto(sc,OP_QUIT);
+         }
+       else
+         {
+           file_pop(sc);
+           s_return(sc,sc->value);
+         }
+       /* NOTREACHED */
+     }
 
        /* If interactive, be nice to user. */
        if(file_interactive(sc))
-	 {
-	   sc->envir = sc->global_env;
-	   dump_stack_reset(sc);
-	   putstr(sc,"\n");
-	   putstr(sc,prompt);
-	 }
+     {
+       sc->envir = sc->global_env;
+       dump_stack_reset(sc);
+       putstr(sc,"\n");
+       putstr(sc,prompt);
+     }
 
        /* Set up another iteration of REPL */
        sc->nesting=0;
@@ -2445,7 +2445,7 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
      case OP_READ_INTERNAL:       /* internal read */
           sc->tok = token(sc);
           if(sc->tok==TOK_EOF)
-	    { s_return(sc,sc->EOF_OBJ); }
+        { s_return(sc,sc->EOF_OBJ); }
           s_goto(sc,OP_RDSEXPR);
 
      case OP_GENSYM:
@@ -2711,6 +2711,8 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
                new_slot_in_env(sc, caar(x), car(y));
           }
           if (is_symbol(car(sc->code))) {    /* named let */
+               if (!is_pair(cadr(sc->code)))
+                    Error_1(sc, "Bad syntax of binding in let :", car(sc->code));
                for (x = cadr(sc->code), sc->args = sc->NIL; x != sc->NIL; x = cdr(x)) {
 
                     sc->args = cons(sc, caar(x), sc->args);
@@ -3711,39 +3713,39 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
      }
      case OP_OPEN_OUTSTRING: /* open-output-string */ {
           pointer p;
-	  if(car(sc->args)==sc->NIL) {
+      if(car(sc->args)==sc->NIL) {
                p=port_from_scratch(sc);
                if(p==sc->NIL) {
                     s_return(sc,sc->F);
                }
-	  } else {
+      } else {
                p=port_from_string(sc, strvalue(car(sc->args)),
-	                  strvalue(car(sc->args))+strlength(car(sc->args)),
+                      strvalue(car(sc->args))+strlength(car(sc->args)),
                           port_output);
                if(p==sc->NIL) {
                     s_return(sc,sc->F);
                }
-	  }
+      }
           s_return(sc,p);
      }
      case OP_GET_OUTSTRING: /* get-output-string */ {
           port *p;
 
-	  if ((p=car(sc->args)->_object._port)->kind&port_string) {
-	       off_t size;
-	       char *str;
+      if ((p=car(sc->args)->_object._port)->kind&port_string) {
+           off_t size;
+           char *str;
 
-	       size=p->rep.string.curr-p->rep.string.start+1;
+           size=p->rep.string.curr-p->rep.string.start+1;
                if(str=sc->malloc(size)) {
                     pointer s;
 
                     memcpy(str,p->rep.string.start,size-1);
-	            str[size-1]='\0';
-	            s=mk_string(sc,str);
-	            sc->free(str);
+                str[size-1]='\0';
+                s=mk_string(sc,str);
+                sc->free(str);
                     s_return(sc,s);
-	       }
-	  }
+           }
+      }
           s_return(sc,sc->F);
      }
 #endif
@@ -3836,8 +3838,8 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
      case OP_RDSEXPR:
           switch (sc->tok) {
           case TOK_EOF:
-	    s_return(sc,sc->EOF_OBJ);
-	    /* NOTREACHED */
+        s_return(sc,sc->EOF_OBJ);
+        /* NOTREACHED */
 /*
  * Commented out because we now skip comments in the scanner
  *
