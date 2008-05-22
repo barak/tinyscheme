@@ -181,7 +181,9 @@ struct scheme_interface {
   int (*is_real)(pointer p);
   int (*is_character)(pointer p);
   long (*charvalue)(pointer p);
+  int (*is_list)(scheme *sc, pointer p);
   int (*is_vector)(pointer p);
+  int (*list_length)(scheme *sc, pointer vec);
   long (*vector_length)(pointer vec);
   void (*fill_vector)(pointer vec, pointer elem);
   pointer (*vector_elem)(pointer vec, int ielem);
