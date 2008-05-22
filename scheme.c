@@ -166,6 +166,7 @@ INTERFACE INLINE int is_string(pointer p)     { return (type(p)==T_STRING); }
 #define strvalue(p)      ((p)->_object._string._svalue)
 #define strlength(p)        ((p)->_object._string._length)
 
+INTERFACE static int is_list(scheme *sc, pointer p);
 INTERFACE INLINE int is_vector(pointer p)    { return (type(p)==T_VECTOR); }
 INTERFACE static void fill_vector(pointer vec, pointer obj);
 INTERFACE static pointer vector_elem(pointer vec, int ielem);
@@ -2712,7 +2713,10 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           }
           if (is_symbol(car(sc->code))) {    /* named let */
                for (x = cadr(sc->code), sc->args = sc->NIL; x != sc->NIL; x = cdr(x)) {
-
+                    if (!is_pair(x))
+                        Error_1(sc, "Bad syntax of binding in let :", x);
+                    if (!is_list(sc, car(x)))
+                        Error_1(sc, "Bad syntax of binding in let :", car(x));
                     sc->args = cons(sc, caar(x), sc->args);
                }
                x = mk_closure(sc, cons(sc, reverse_in_place(sc, sc->NIL, sc->args), cddr(sc->code)), sc->envir);
@@ -3333,8 +3337,8 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
                Error_1(sc,"vector: not a proper list:",sc->args);
           }
           vec=mk_vector(sc,len);
-      if(sc->no_memory) { s_return(sc, sc->sink); }
-      for (x = sc->args, i = 0; is_pair(x); x = cdr(x), i++) {
+          if(sc->no_memory) { s_return(sc, sc->sink); }
+          for (x = sc->args, i = 0; is_pair(x); x = cdr(x), i++) {
                set_vector_elem(vec,i,car(x));
           }
           s_return(sc,vec);
@@ -3396,16 +3400,63 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
      return sc->T;
 }
 
+static int is_list(scheme *sc, pointer a) {
+    pointer slow, fast;
+
+    slow = fast = a;
+    while (1)
+    {
+        if (fast == sc->NIL)
+                return 1;
+        if (!is_pair(fast))
+                return 0;
+        fast = cdr(fast);
+        if (fast == sc->NIL)
+                return 1;
+        if (!is_pair(fast))
+                return 0;
+        fast = cdr(fast);
+
+        slow = cdr(slow);
+        if (fast == slow)
+        {
+            /* the fast pointer has looped back around and caught up
+               with the slow pointer, hence the structure is circular,
+               not of finite length, and therefore not a list */
+            return 0;
+        }
+    }
+}
+
 int list_length(scheme *sc, pointer a) {
-     int v=0;
-     pointer x;
-     for (x = a, v = 0; is_pair(x); x = cdr(x)) {
-          ++v;
-     }
-     if(x==sc->NIL) {
-          return v;
-     }
-     return -1;
+    int i=0;
+    pointer slow, fast;
+
+    slow = fast = a;
+    while (1)
+    {
+        if (fast == sc->NIL)
+                return i;
+        if (!is_pair(fast))
+                return i;
+        fast = cdr(fast);
+        ++i;
+        if (fast == sc->NIL)
+                return i;
+        if (!is_pair(fast))
+                return i;
+        ++i;
+        fast = cdr(fast);
+
+        slow = cdr(slow);
+        if (fast == slow)
+        {
+            /* the fast pointer has looped back around and caught up
+               with the slow pointer, hence the structure is circular,
+               not of finite length, and therefore not a list */
+            return -1;
+        }
+    }
 }
 
 static pointer opexe_3(scheme *sc, enum scheme_opcodes op) {
@@ -4363,7 +4414,9 @@ static struct scheme_interface vtbl ={
   is_real,
   is_character,
   charvalue,
+  is_list,
   is_vector,
+  list_length,
   ivalue,
   fill_vector,
   vector_elem,
