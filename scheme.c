@@ -2549,7 +2549,10 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
 #endif
           if (is_proc(sc->code)) {
                s_goto(sc,procnum(sc->code));   /* PROCEDURE */
-          } else if (is_foreign(sc->code)) {
+          } else if (is_foreign(sc->code))
+	    {
+	      /* Keep nested calls from GC'ing the arglist */
+	      push_recent_alloc(sc,sc->args,sc->NIL);
                x=sc->code->_object._ff(sc,sc->args);
                s_return(sc,x);
           } else if (is_closure(sc->code) || is_macro(sc->code)
