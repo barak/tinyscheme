@@ -5,6 +5,10 @@
 
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Default values for #define'd symbols
  */
@@ -216,6 +220,10 @@ struct scheme_interface {
   void (*load_file)(scheme *sc, FILE *fin);
   void (*load_string)(scheme *sc, const char *input);
 };
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif
