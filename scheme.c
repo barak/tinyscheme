@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 3 8
+/* T I N Y S C H E M E    1 . 3 9
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -59,7 +59,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.38"
+#define banner "TinyScheme 1.39"
 
 #include <string.h>
 #include <stdlib.h>
