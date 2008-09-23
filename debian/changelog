@@ -1,3 +1,14 @@
+tinyscheme (1.37-3.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * scheme.c:
+    - Apply patch from upstream CVS (revno 1.13 and 1.21) to fix a
+      segfault when invoking let or letrec (Closes: #380439).
+    - Apply patch from upstream CVS (revno 1.7) to fail gracefully when
+      mk_vector is out of memory (Closes: #499887).
+
+ -- Luca Falavigna <dktrkranz@ubuntu.com>  Wed, 24 Sep 2008 01:15:22 +0200
+
 tinyscheme (1.37-3) unstable; urgency=low
 
   * took away rest of references about "ts".
