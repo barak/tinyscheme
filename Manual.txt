@@ -1,6 +1,6 @@
 
 
-                       TinySCHEME Version 1.38
+                       TinySCHEME Version 1.39
 
                     "Safe if used as prescribed"
                     -- Philip K. Dick, "Ubik"
@@ -227,7 +227,10 @@ Please read accompanying file COPYING.
 
           Dynamically-loaded extensions
      (load-extension <filename without extension>)
-     Loads a DLL declaring foreign procedures.
+     Loads a DLL declaring foreign procedures. On Unix/Linux, one can make use
+     of the ld.so.conf file or the LD_RUN_PATH system variable in order to place
+     the library in a directory other than the current one. Please refer to the
+     appropriate 'man' page.
 
           Esoteric procedures
      (oblist)
