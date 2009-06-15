@@ -197,3 +197,9 @@ void setimmutable(pointer p);
 #endif
 
 #endif
+
+/*
+Local variables:
+c-file-style: "k&r"
+End:
+*/
