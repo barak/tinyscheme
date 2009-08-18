@@ -2547,9 +2547,9 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           if (is_proc(sc->code)) {
                s_goto(sc,procnum(sc->code));   /* PROCEDURE */
           } else if (is_foreign(sc->code))
-	    {
-	      /* Keep nested calls from GC'ing the arglist */
-	      push_recent_alloc(sc,sc->args,sc->NIL);
+            {
+              /* Keep nested calls from GC'ing the arglist */
+              push_recent_alloc(sc,sc->args,sc->NIL);
                x=sc->code->_object._ff(sc,sc->args);
                s_return(sc,x);
           } else if (is_closure(sc->code) || is_macro(sc->code)
@@ -2590,19 +2590,19 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           sc->code = sc->value;
           s_goto(sc,OP_EVAL);
 
-#if 1	
+#if 1
      case OP_LAMBDA:     /* lambda */
-	  /* If the hook is defined, apply it to sc->code, otherwise
-	     set sc->value fall thru */
-	  {
-	       pointer f=find_slot_in_env(sc,sc->envir,sc->COMPILE_HOOK,1);
+          /* If the hook is defined, apply it to sc->code, otherwise
+             set sc->value fall thru */
+          {
+               pointer f=find_slot_in_env(sc,sc->envir,sc->COMPILE_HOOK,1);
                if(f==sc->NIL) {
-		    sc->value = sc->code;
+                    sc->value = sc->code;
                     /* Fallthru */
                } else {
-		    s_save(sc,OP_LAMBDA1,sc->args,sc->code);
-		    sc->args=cons(sc,sc->code,sc->NIL);
-		    sc->code=slot_value_in_env(f);
+                    s_save(sc,OP_LAMBDA1,sc->args,sc->code);
+                    sc->args=cons(sc,sc->code,sc->NIL);
+                    sc->code=slot_value_in_env(f);
                     s_goto(sc,OP_APPLY);
                }
           }
@@ -2613,8 +2613,8 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
 #else
      case OP_LAMBDA:     /* lambda */
           s_return(sc,mk_closure(sc, sc->code, sc->envir));
-	
-#endif	
+
+#endif
 
      case OP_MKCLOSURE: /* make-closure */
        x=car(sc->args);
@@ -3454,8 +3454,8 @@ int list_length(scheme *sc, pointer a) {
         ++i;
         fast = cdr(fast);
 
-	/* Safe because we would have already returned if `fast'
-	   encountered a non-pair. */
+        /* Safe because we would have already returned if `fast'
+           encountered a non-pair. */
         slow = cdr(slow);
         if (fast == slow)
         {
@@ -3779,14 +3779,15 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
            char *str;
 
            size=p->rep.string.curr-p->rep.string.start+1;
-               if(str=sc->malloc(size)) {
-                    pointer s;
+           str=sc->malloc(size);
+           if(str != NULL) {
+                pointer s;
 
-                    memcpy(str,p->rep.string.start,size-1);
+                memcpy(str,p->rep.string.start,size-1);
                 str[size-1]='\0';
                 s=mk_string(sc,str);
                 sc->free(str);
-                    s_return(sc,s);
+                s_return(sc,s);
            }
       }
           s_return(sc,sc->F);
@@ -4668,14 +4669,14 @@ void scheme_define(scheme *sc, pointer envir, pointer symbol, pointer value) {
 void scheme_register_foreign_func(scheme * sc, scheme_registerable * sr)
 {
   scheme_define(sc,
-		sc->global_env,
-		mk_symbol(sc,sr->name),
-		mk_foreign_func(sc, sr->f));
+                sc->global_env,
+                mk_symbol(sc,sr->name),
+                mk_foreign_func(sc, sr->f));
 }
 
 void scheme_register_foreign_func_list(scheme * sc,
-				       scheme_registerable * list,
-				       int count)
+                                       scheme_registerable * list,
+                                       int count)
 {
   int i;
   for(i = 0; i < count; i++)
@@ -4691,10 +4692,10 @@ void save_from_C_call(scheme *sc)
 {
   pointer saved_data =
     cons(sc,
-	 car(sc->sink),
-	 cons(sc,
-	      sc->envir,
-	      sc->dump));
+         car(sc->sink),
+         cons(sc,
+              sc->envir,
+              sc->dump));
   /* Push */
   sc->c_nest = cons(sc, saved_data, sc->c_nest);
   /* Truncate the dump stack so TS will return here when done, not
