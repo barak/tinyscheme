@@ -3972,6 +3972,9 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
                sc->tok = token(sc);
           }
 */
+	  if(sc->tok == TOK_EOF)
+	       { s_return(sc,sc->EOF_OBJ); }
+	  else
           if (sc->tok == TOK_RPAREN) {
                int c = inchar(sc);
                if (c != '\n') backchar(sc,c);
