@@ -17,7 +17,7 @@
 #endif
     _OP_DEF(opexe_0, 0,                                0,  0,       0,                               OP_DOMACRO          )
     _OP_DEF(opexe_0, 0,                                0,  0,       0,                               OP_LAMBDA           )
-    _OP_DEF(opexe_0, 0,                                0,  0,       0,                               OP_LAMBDA1           )
+    _OP_DEF(opexe_0, 0,                                0,  0,       0,                               OP_LAMBDA1          )
     _OP_DEF(opexe_0, "make-closure",                   1,  2,       TST_PAIR TST_ENVIRONMENT,        OP_MKCLOSURE        )
     _OP_DEF(opexe_0, 0,                                0,  0,       0,                               OP_QUOTE            )
     _OP_DEF(opexe_0, 0,                                0,  0,       0,                               OP_DEF0             )
@@ -142,7 +142,7 @@
     _OP_DEF(opexe_4, "newline",                        0,  1,       TST_OUTPORT,                     OP_NEWLINE          )
     _OP_DEF(opexe_4, "error",                          1,  INF_ARG, TST_NONE,                        OP_ERR0             )
     _OP_DEF(opexe_4, 0,                                0,  0,       0,                               OP_ERR1             )
-    _OP_DEF(opexe_4, "reverse",                        1,  1,       TST_PAIR,                        OP_REVERSE          )
+    _OP_DEF(opexe_4, "reverse",                        1,  1,       TST_LIST,                        OP_REVERSE          )
     _OP_DEF(opexe_4, "list*",                          1,  INF_ARG, TST_NONE,                        OP_LIST_STAR        )
     _OP_DEF(opexe_4, "append",                         0,  INF_ARG, TST_NONE,                        OP_APPEND           )
     _OP_DEF(opexe_4, "put",                            3,  3,       TST_NONE,                        OP_PUT              )
