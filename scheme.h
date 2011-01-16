@@ -158,7 +158,7 @@ pointer mk_empty_string(scheme *sc, int len, char fill);
 pointer mk_character(scheme *sc, int c);
 pointer mk_foreign_func(scheme *sc, foreign_func f);
 void putstr(scheme *sc, const char *s);
-int list_length(scheme *sc, pointer a);
+long list_length(scheme *sc, pointer a);
 int eqv(pointer a, pointer b);
 
 
@@ -192,7 +192,7 @@ struct scheme_interface {
   long (*charvalue)(pointer p);
   int (*is_list)(scheme *sc, pointer p);
   int (*is_vector)(pointer p);
-  int (*list_length)(scheme *sc, pointer vec);
+  long (*list_length)(scheme *sc, pointer vec);
   long (*vector_length)(pointer vec);
   void (*fill_vector)(pointer vec, pointer elem);
   pointer (*vector_elem)(pointer vec, int ielem);
@@ -231,13 +231,13 @@ struct scheme_interface {
 typedef struct scheme_registerable
 {
   foreign_func  f;
-  char * 	name;
+  char *        name;
 }
 scheme_registerable;
 
 void scheme_register_foreign_func_list(scheme * sc,
-				       scheme_registerable * list,
-				       int n);
+                                       scheme_registerable * list,
+                                       int n);
 
 #endif /* !STANDALONE */
 
