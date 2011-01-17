@@ -3422,7 +3422,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
      case OP_VECTOR: {   /* vector */
           int i;
           pointer vec;
-          long len=list_length(sc,sc->args);
+          int len=list_length(sc,sc->args);
           if(len<0) {
                Error_1(sc,"vector: not a proper list:",sc->args);
           }
@@ -3499,7 +3499,7 @@ static int is_list(scheme *sc, pointer a)
    not even a pair: -2
    dotted list: -2 minus length before dot
 */
-long list_length(scheme *sc, pointer a) {
+int list_length(scheme *sc, pointer a) {
     int i=0;
     pointer slow, fast;
 
@@ -4037,9 +4037,9 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
                sc->tok = token(sc);
           }
 */
-          if(sc->tok == TOK_EOF)
-               { s_return(sc,sc->EOF_OBJ); }
-          else if (sc->tok == TOK_RPAREN) {
+      if(sc->tok == TOK_EOF)
+           { s_return(sc,sc->EOF_OBJ); }
+      else if (sc->tok == TOK_RPAREN) {
                int c = inchar(sc);
                if (c != '\n')
                  backchar(sc,c);
@@ -4309,7 +4309,7 @@ static void Eval_Cycle(scheme *sc, enum scheme_opcodes op) {
     if (pcd->name!=0) { /* if built-in function, check arguments */
       char msg[STRBUFFSIZE];
       int ok=1;
-      long n=list_length(sc,sc->args);
+      int n=list_length(sc,sc->args);
 
       /* Check number of arguments */
       if(n<pcd->min_arity) {
