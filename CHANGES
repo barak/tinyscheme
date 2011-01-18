@@ -1,6 +1,30 @@
 Change Log
 ----------
 
+Version 1.40
+    Bugs fixed:
+        #1964950 - Stop core dumps due to bad syntax in LET (and variants)
+        #2826594 - allow reverse to work on empty list (Tony Garnock-Jones)
+        Potential problem of arglist to foreign calls being wrongly GC'ed.
+        Fixed bug that read could loop forever (tehom).
+
+    API changes:
+        Exposed is_list and list_length.
+        Added scheme_register_foreign_func_list and declarations for it (tehom)
+        Defined *compile-hook* (tehom)
+
+    Other changes:
+        Updated is_list and list_length to handle circular lists.
+        Nested calling thru C has been made now safer (tehom)
+        Peter Michaux cleaned up port_rep_from_file
+        Added unwind-protect (tehom)
+        Some cleanups to in/outport and Eval_Cycle by Peter Michaux
+        Report error line number (Mostly by Sanel Zukan, back-compatibility by Tehom)
+
+    Contributors:
+        Kevin Cozens, Dimitrios Souflis, Tom Breton, Peter Michaux, Sanel Zukan,
+        and Tony Garnock-Jones.
+
 Version 1.39
     Bugs fixed:
         Fix for the load bug
