@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 3 9
+/* T I N Y S C H E M E    1 . 4 0
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
