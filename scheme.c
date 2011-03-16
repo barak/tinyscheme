@@ -3133,6 +3133,9 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
                Error_0(sc,"expt: needs two arguments");
           } else {
                pointer y=cadr(sc->args);
+               /* This 'if' is an R5RS compatability fix. */
+               if (rvalue(x) == 0 && rvalue(y) < 0)
+                   s_return(sc, mk_real(sc, 0));
                s_return(sc, mk_real(sc, pow(rvalue(x),rvalue(y))));
           }
 
@@ -4701,6 +4704,7 @@ void scheme_deinit(scheme *sc) {
 
 void scheme_load_file(scheme *sc, FILE *fin)
 { scheme_load_named_file(sc,fin,0); }
+
 void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename) {
   dump_stack_reset(sc);
   sc->envir = sc->global_env;
