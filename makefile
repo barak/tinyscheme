@@ -33,11 +33,18 @@ AR= ar crs
 LD = gcc
 LDFLAGS = -shared
 DEBUG=-g -Wno-char-subscripts -O
-SYS_LIBS= -ldl
+SYS_LIBS= -ldl -lm
 PLATFORM_FEATURES= -DSUN_DL=1
 
 # Cygwin
 #PLATFORM_FEATURES = -DUSE_STRLWR=0
+
+# Mac OS X
+#LD = gcc
+#LDFLAGS = -shared
+#DEBUG=-g -Wno-char-subscripts -O
+#SYS_LIBS= -ldl
+#PLATFORM_FEATURES= -DUSE_STRLWR=1 -D__APPLE__=1 -DOSX=1
 
 
 # Solaris
@@ -50,7 +57,7 @@ PLATFORM_FEATURES= -DSUN_DL=1
 #LIBPREFIX = lib
 #OUT = -o $@
 
-FEATURES = $(PLATFORM_FEATURES) -DUSE_DL=1 -DUSE_MATH=0 -DUSE_ASCII_NAMES=0
+FEATURES = $(PLATFORM_FEATURES) -DUSE_DL=1 -DUSE_MATH=1 -DUSE_ASCII_NAMES=0
 
 OBJS = scheme.$(Osuf) dynload.$(Osuf)
 
