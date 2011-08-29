@@ -1923,16 +1923,23 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
      } else if (is_number(l)) {
           p = sc->strbuff;
           if(num_is_integer(l)) {
-        snprintf(p, STRBUFFSIZE, "%ld", ivalue_unchecked(l));
+               snprintf(p, STRBUFFSIZE, "%ld", ivalue_unchecked(l));
           } else {
                snprintf(p, STRBUFFSIZE, "%.10g", rvalue_unchecked(l));
+               /* r5rs says there must be a '.' (unless 'e'?) */
+               f = strcspn(p, ".e");
+               if (p[f] == 0) {
+                    p[f] = '.'; // not found, so add '.0' at the end
+                    p[f+1] = '0';
+                    p[f+2] = 0;
+               }
           }
      } else if (is_string(l)) {
           if (!f) {
                p = strvalue(l);
           } else { /* Hack, uses the fact that printing is needed */
                *pp=sc->strbuff;
-           *plen=0;
+               *plen=0;
                printslashstring(sc, strvalue(l), strlength(l));
            return;
           }
