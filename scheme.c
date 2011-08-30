@@ -3178,7 +3178,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
      }
 
      case OP_ROUND:
-        s_return(sc, mk_real(sc, round_per_R5RS(rvalue(x))));
         x=car(sc->args);
         if (num_is_integer(x))
             s_return(sc, mk_integer(sc, round_per_R5RS(rvalue(x))));
