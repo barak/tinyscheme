@@ -140,7 +140,7 @@
 (define (string->anyatom str pred)
      (let* ((a (string->atom str)))
        (if (pred a) a
-     (error "string->xxx: not a xxx" a))))
+         (error "string->xxx: not a xxx" a))))
 
 (define (string->number str) (string->anyatom str number?))
 
@@ -210,31 +210,31 @@
   (if (null? lists)
       (cons cars cdrs)
       (let ((car1 (caar lists))
-      (cdr1 (cdar lists)))
-  (unzip1-with-cdr-iterative
-   (cdr lists)
-   (append cars (list car1))
-   (append cdrs (list cdr1))))))
+            (cdr1 (cdar lists)))
+        (unzip1-with-cdr-iterative
+          (cdr lists)
+          (append cars (list car1))
+          (append cdrs (list cdr1))))))
 
 (define (map proc . lists)
   (if (null? lists)
       (apply proc)
       (if (null? (car lists))
-    '()
-    (let* ((unz (apply unzip1-with-cdr lists))
-     (cars (car unz))
-     (cdrs (cdr unz)))
-      (cons (apply proc cars) (apply map (cons proc cdrs)))))))
+        '()
+        (let* ((unz (apply unzip1-with-cdr lists))
+               (cars (car unz))
+               (cdrs (cdr unz)))
+          (cons (apply proc cars) (apply map (cons proc cdrs)))))))
 
 (define (for-each proc . lists)
   (if (null? lists)
       (apply proc)
       (if (null? (car lists))
-    #t
-    (let* ((unz (apply unzip1-with-cdr lists))
-     (cars (car unz))
-     (cdrs (cdr unz)))
-      (apply proc cars) (apply map (cons proc cdrs))))))
+        #t
+        (let* ((unz (apply unzip1-with-cdr lists))
+               (cars (car unz))
+               (cdrs (cdr unz)))
+          (apply proc cars) (apply map (cons proc cdrs))))))
 
 (define (list-tail x k)
     (if (zero? k)
@@ -338,10 +338,11 @@
 
 ;;;;;Helper for the dynamic-wind definition.  By Tom Breton (Tehom)
 (define (shared-tail x y)
-   (let (  (len-x (length x))
-           (len-y (length y)))
-     (define (shared-tail-helper x y)
-        (if (eq? x y)
+   (let ((len-x (length x))
+         (len-y (length y)))
+      (define (shared-tail-helper x y)
+         (if
+            (eq? x y)
             x
             (shared-tail-helper (cdr x) (cdr y))))
 
@@ -588,8 +589,8 @@
   (let* ((env (if (null? envl) (current-environment) (eval (car envl))))
          (xval (eval x env)))
     (if (closure? xval)
-  (make-closure (get-closure-code xval) env)
-  xval)))
+      (make-closure (get-closure-code xval) env)
+      xval)))
 
 ; Redefine this if you install another package infrastructure
 ; Also redefine 'package'
@@ -696,16 +697,17 @@
   (foldr (lambda (x y) (or (cond-eval x) (cond-eval y))) #f cond-list))
 
 (define (cond-eval condition)
-  (cond ((symbol? condition)
-   (if (member condition *features*) #t #f))
-  ((eq? condition #t) #t)
-  ((eq? condition #f) #f)
-  (else (case (car condition)
-    ((and) (cond-eval-and (cdr condition)))
-    ((or) (cond-eval-or (cdr condition)))
-    ((not) (if (not (null? (cddr condition)))
-         (error "cond-expand : 'not' takes 1 argument")
-         (not (cond-eval (cadr condition)))))
-    (else (error "cond-expand : unknown operator" (car condition)))))))
+  (cond
+    ((symbol? condition)
+       (if (member condition *features*) #t #f))
+    ((eq? condition #t) #t)
+    ((eq? condition #f) #f)
+    (else (case (car condition)
+            ((and) (cond-eval-and (cdr condition)))
+            ((or) (cond-eval-or (cdr condition)))
+            ((not) (if (not (null? (cddr condition)))
+                     (error "cond-expand : 'not' takes 1 argument")
+                     (not (cond-eval (cadr condition)))))
+            (else (error "cond-expand : unknown operator" (car condition)))))))
 
 (gc-verbose #f)
