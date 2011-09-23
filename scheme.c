@@ -366,7 +366,7 @@ static pointer mk_closure(scheme *sc, pointer c, pointer e);
 static pointer mk_continuation(scheme *sc, pointer d);
 static pointer reverse(scheme *sc, pointer a);
 static pointer reverse_in_place(scheme *sc, pointer term, pointer list);
-static pointer append(scheme *sc, pointer a, pointer b);
+static pointer revappend(scheme *sc, pointer a, pointer b);
 static void dump_stack_mark(scheme *);
 static pointer opexe_0(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_1(scheme *sc, enum scheme_opcodes op);
@@ -2066,20 +2066,21 @@ static pointer reverse_in_place(scheme *sc, pointer term, pointer list) {
      return (result);
 }
 
-/* append list -- produce new list */
-static pointer append(scheme *sc, pointer a, pointer b) {
-     pointer p = b, q;
+/* append list -- produce new list (in reverse order) */
+static pointer revappend(scheme *sc, pointer a, pointer b) {
+    pointer result = a;
+    pointer p = b;
 
-     if (a != sc->NIL) {
-          a = reverse(sc, a);
-          while (a != sc->NIL) {
-               q = cdr(a);
-               cdr(a) = p;
-               p = a;
-               a = q;
-          }
-     }
-     return (p);
+    while (is_pair(p)) {
+        result = cons(sc, car(p), result);
+        p = cdr(p);
+    }
+
+    if (p == sc->NIL) {
+        return result;
+    }
+
+    return sc->F;   /* signal an error */
 }
 
 /* equivalence of atoms */
@@ -3731,24 +3732,30 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
                }
           }
 
-     case OP_REVERSE:    /* reverse */
+     case OP_REVERSE:   /* reverse */
           s_return(sc,reverse(sc, car(sc->args)));
 
      case OP_LIST_STAR: /* list* */
-       s_return(sc,list_star(sc,sc->args));
+          s_return(sc,list_star(sc,sc->args));
 
-     case OP_APPEND:     /* append */
-          if(sc->args==sc->NIL) {
-               s_return(sc,sc->NIL);
+     case OP_APPEND:    /* append */
+          x = sc->NIL;
+          y = sc->args;
+          if (y == x) {
+              s_return(sc, x);
           }
-          x=car(sc->args);
-          if(cdr(sc->args)==sc->NIL) {
-            s_return(sc,x);
+
+          /* cdr() in the while condition is not a typo. If car() */
+          /* is used (append '() 'a) will return the wrong result.*/
+          while (cdr(y) != sc->NIL) {
+              x = revappend(sc, x, car(y));
+              y = cdr(y);
+              if (x == sc->F) {
+                  Error_0(sc, "non-list argument to append");
+              }
           }
-          for (y = cdr(sc->args); y != sc->NIL; y = cdr(y)) {
-               x=append(sc,x,car(y));
-          }
-          s_return(sc,x);
+
+          s_return(sc, reverse_in_place(sc, car(y), x));
 
 #if USE_PLIST
      case OP_PUT:        /* put */
@@ -3976,8 +3983,8 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
      case OP_RDSEXPR:
           switch (sc->tok) {
           case TOK_EOF:
-        s_return(sc,sc->EOF_OBJ);
-        /* NOTREACHED */
+               s_return(sc,sc->EOF_OBJ);
+          /* NOTREACHED */
 /*
  * Commented out because we now skip comments in the scanner
  *
@@ -4058,7 +4065,6 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
           sc->args = cons(sc, sc->value, sc->args);
           sc->tok = token(sc);
 /* We now skip comments in the scanner
-
           while (sc->tok == TOK_COMMENT) {
                int c;
                while ((c=inchar(sc)) != '\n' && c!=EOF)
@@ -4066,9 +4072,9 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
                sc->tok = token(sc);
           }
 */
-      if(sc->tok == TOK_EOF)
-           { s_return(sc,sc->EOF_OBJ); }
-      else if (sc->tok == TOK_RPAREN) {
+          if (sc->tok == TOK_EOF)
+               { s_return(sc,sc->EOF_OBJ); }
+          else if (sc->tok == TOK_RPAREN) {
                int c = inchar(sc);
                if (c != '\n')
                  backchar(sc,c);
