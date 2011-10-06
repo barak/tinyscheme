@@ -2702,7 +2702,6 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
        s_return(sc,mk_closure(sc, x, y));
 
      case OP_QUOTE:      /* quote */
-          x=car(sc->code);
           s_return(sc,car(sc->code));
 
      case OP_DEF0:  /* define */
