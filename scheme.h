@@ -146,6 +146,12 @@ void scheme_set_external_data(scheme *sc, void *p);
 SCHEME_EXPORT void scheme_define(scheme *sc, pointer env, pointer symbol, pointer value);
 
 typedef pointer (*foreign_func)(scheme *, pointer);
+typedef void (*finalizer)(void*);
+typedef struct {
+	int _tag;
+	void* _ptr;
+	finalizer _fin;
+} foreign_ptr;
 
 pointer _cons(scheme *sc, pointer a, pointer b, int immutable);
 pointer mk_integer(scheme *sc, long num);
@@ -157,6 +163,7 @@ pointer mk_counted_string(scheme *sc, const char *str, int len);
 pointer mk_empty_string(scheme *sc, int len, char fill);
 pointer mk_character(scheme *sc, int c);
 pointer mk_foreign_func(scheme *sc, foreign_func f);
+pointer mk_foreign_ptr(scheme *sc, foreign_ptr* fp);
 void putstr(scheme *sc, const char *s);
 int list_length(scheme *sc, pointer a);
 int eqv(pointer a, pointer b);
@@ -177,6 +184,7 @@ struct scheme_interface {
   pointer (*mk_character)(scheme *sc, int c);
   pointer (*mk_vector)(scheme *sc, int len);
   pointer (*mk_foreign_func)(scheme *sc, foreign_func f);
+  pointer (*mk_foreign_ptr)(scheme *sc, foreign_ptr* fp);
   void (*putstr)(scheme *sc, const char *s);
   void (*putcharacter)(scheme *sc, int c);
 
@@ -211,6 +219,7 @@ struct scheme_interface {
   int (*is_syntax)(pointer p);
   int (*is_proc)(pointer p);
   int (*is_foreign)(pointer p);
+  int (*is_foreignptr)(pointer p);
   char *(*syntaxname)(pointer p);
   int (*is_closure)(pointer p);
   int (*is_macro)(pointer p);

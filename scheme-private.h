@@ -51,12 +51,17 @@ struct cell {
     num _number;
     port *_port;
     foreign_func _ff;
+    foreign_ptr _fp;
     struct {
       struct cell *_car;
       struct cell *_cdr;
     } _cons;
   } _object;
 };
+
+#define foreignptr_tag(p) (p)->_object._fp._tag
+#define foreignptr_ptr(p) (p)->_object._fp._ptr
+#define foreignptr_fin(p) (p)->_object._fp._fin
 
 struct scheme {
 /* arrays for segments */
@@ -183,6 +188,7 @@ int hasprop(pointer p);
 int is_syntax(pointer p);
 int is_proc(pointer p);
 int is_foreign(pointer p);
+int is_foreignptr(pointer p);
 char *syntaxname(pointer p);
 int is_closure(pointer p);
 #ifdef USE_MACRO

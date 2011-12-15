@@ -122,7 +122,8 @@ enum scheme_types {
   T_MACRO=12,
   T_PROMISE=13,
   T_ENVIRONMENT=14,
-  T_LAST_SYSTEM_TYPE=14
+  T_FOREIGNPTR=15,
+  T_LAST_SYSTEM_TYPE=15
 };
 
 /* ADJ is enough slack to align cells in a TYPE_BITS-bit boundary */
@@ -220,6 +221,7 @@ SCHEME_EXPORT INLINE int hasprop(pointer p)     { return (typeflag(p)&T_SYMBOL);
 INTERFACE INLINE int is_syntax(pointer p)   { return (typeflag(p)&T_SYNTAX); }
 INTERFACE INLINE int is_proc(pointer p)     { return (type(p)==T_PROC); }
 INTERFACE INLINE int is_foreign(pointer p)  { return (type(p)==T_FOREIGN); }
+INTERFACE INLINE int is_foreignptr(pointer p)  { return (type(p)==T_FOREIGNPTR); }
 INTERFACE INLINE char *syntaxname(pointer p) { return strvalue(car(p)); }
 #define procnum(p)       ivalue(p)
 static const char *procname(pointer x);
@@ -927,6 +929,16 @@ pointer mk_foreign_func(scheme *sc, foreign_func f) {
   return (x);
 }
 
+pointer mk_foreign_ptr(scheme *sc, foreign_ptr* fp) {
+  pointer x = get_cell(sc, sc->NIL, sc->NIL);
+
+  typeflag(x) = (T_FOREIGNPTR | T_ATOM);
+  foreignptr_tag(x)=fp->_tag;
+  foreignptr_ptr(x)=fp->_ptr;
+  foreignptr_fin(x)=fp->_fin;
+  return (x);
+}
+
 INTERFACE pointer mk_character(scheme *sc, int c) {
   pointer x = get_cell(sc,sc->NIL, sc->NIL);
 
@@ -1323,6 +1335,11 @@ static void finalize_cell(scheme *sc, pointer a) {
       port_close(sc,a,port_input|port_output);
     }
     sc->free(a->_object._port);
+  } else if(is_foreignptr(a)) {
+    void* _ptr = foreignptr_ptr(a);
+    finalizer _fin = foreignptr_fin(a);
+    if(_ptr && _fin)
+       _fin(_ptr);
   }
 }
 
@@ -1996,6 +2013,11 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
      } else if (is_foreign(l)) {
           p = sc->strbuff;
           snprintf(p,STRBUFFSIZE,"#<FOREIGN PROCEDURE %ld>", procnum(l));
+     } else if (is_foreignptr(l)) {
+          p = sc->strbuff;
+          snprintf(p,STRBUFFSIZE,"#<FOREIGN POINTER %p, TAG %p>"
+		, foreignptr_ptr(l)
+		, foreignptr_tag(l));
      } else if (is_continuation(l)) {
           p = "#<CONTINUATION>";
      } else {
@@ -4494,6 +4516,7 @@ static struct scheme_interface vtbl ={
   mk_character,
   mk_vector,
   mk_foreign_func,
+  mk_foreign_ptr,
   putstr,
   putcharacter,
 
@@ -4527,6 +4550,7 @@ static struct scheme_interface vtbl ={
   is_syntax,
   is_proc,
   is_foreign,
+  is_foreignptr,
   syntaxname,
   is_closure,
   is_macro,
