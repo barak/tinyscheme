@@ -1,0 +1,38 @@
+New foreign_ptr type, used to store arbitrary data.
+
+This new type of atom cell allows to store a foreign pointer,
+with an associated finalizer function, used to reclaim any resources
+accessible through the pointer, when the cell is finalized.
+Each pointer has a tag associated with it, which can be used to identify
+the type of resource pointed to.
+
+Definition:
+
+The foreign pointer is stored in the new _fp field of the cell structure.
+
+The _fp field has type foreign_ptr, defined as follows:
+
+typedef void(*finalizer)(void*);
+typedef struct {
+    int _tag; /* Identify your pointer with this. */
+    void* _ptr; /* Store your pointer here. */
+    finalizer _fin; /* Store your finalizer here.
+            This function is called with _ptr as argument when
+            the cell is finalized.
+            Set to NULL if you do not need to release any data. */
+} foreign_ptr;
+
+Accessors:
+
+foreignptr_tag(pointer p) - reference the _fp._tag field.
+foreignptr_ptr(pointer p) - reference the _fp._ptr field.
+foreignptr_fin(pointer p) - reference the _fp._fin field.
+
+Scheme interface:
+
+sc->vptr->mk_foreign_ptr(scheme*,foreign_ptr*)
+   Creates a new cell of type foreign_ptr,
+   and copies to it the fields of the given foreign_ptr.
+
+sc->vptr->is_foreignptr(pointer)
+   Tells wether a cell is a foreign_ptr.
