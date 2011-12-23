@@ -222,6 +222,7 @@ INTERFACE INLINE int is_syntax(pointer p)   { return (typeflag(p)&T_SYNTAX); }
 INTERFACE INLINE int is_proc(pointer p)     { return (type(p)==T_PROC); }
 INTERFACE INLINE int is_foreign(pointer p)  { return (type(p)==T_FOREIGN); }
 INTERFACE INLINE int is_foreignptr(pointer p)  { return (type(p)==T_FOREIGNPTR); }
+INTERFACE INLINE foreign_ptr* fpvalue(pointer p) { return &(p->_object._fp); }
 INTERFACE INLINE char *syntaxname(pointer p) { return strvalue(car(p)); }
 #define procnum(p)       ivalue(p)
 static const char *procname(pointer x);
@@ -4551,6 +4552,7 @@ static struct scheme_interface vtbl ={
   is_proc,
   is_foreign,
   is_foreignptr,
+  fpvalue,
   syntaxname,
   is_closure,
   is_macro,

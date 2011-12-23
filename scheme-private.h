@@ -189,6 +189,7 @@ int is_syntax(pointer p);
 int is_proc(pointer p);
 int is_foreign(pointer p);
 int is_foreignptr(pointer p);
+foreign_ptr* fpvalue(pointer p);
 char *syntaxname(pointer p);
 int is_closure(pointer p);
 #ifdef USE_MACRO
