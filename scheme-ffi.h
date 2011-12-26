@@ -39,6 +39,15 @@
 		,mk_symbol(sc,symbol)		\
 		,pval)
 
+#define internconst(symbol,pval)		\
+  do{						\
+    pointer s = mk_symbol(sc,symbol);		\
+    pointer v = pval;				\
+    setimmutable(s);				\
+    setimmutable(v);				\
+    scheme_define(sc,sc->global_env,s,v);	\
+  }while(0)
+
 #define defun(name) pointer name(scheme* sc, pointer args)
 
 #endif/* ! SCHEME_FFI_HEADER */
