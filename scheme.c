@@ -1339,8 +1339,12 @@ static void finalize_cell(scheme *sc, pointer a) {
   } else if(is_foreignptr(a)) {
     void* _ptr = foreignptr_ptr(a);
     finalizer _fin = foreignptr_fin(a);
-    if(_ptr && _fin)
+    if(_ptr && _fin){
        _fin(_ptr);
+       foreignptr_ptr(a) = NULL;
+       foreignptr_fin(a) = NULL;
+       foreignptr_tag(a) = 0;
+    }
   }
 }
 
