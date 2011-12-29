@@ -2128,6 +2128,13 @@ int eqv(pointer a, pointer b) {
                     return num_eq(nvalue(a),nvalue(b));
           }
           return (0);
+     } else if (is_foreignptr(a)) {
+	  if (is_foreignptr(b))
+	       return (foreignptr_ptr(a) == foreignptr_ptr(b));
+	  else if (is_integer(b))
+	       return (foreignptr_ptr(a) == (void*)ivalue(b));
+	  else
+	       return (0);
      } else if (is_character(a)) {
           if (is_character(b))
                return charvalue(a)==charvalue(b);
