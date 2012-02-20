@@ -4,19 +4,23 @@
 #include "scheme.h"
 #include "scheme-private.h"
 
+#define dbgmsg(msg)					\
+  do {							\
+    fprintf(stderr,__FILE__ ":" __LINE__ ": " msg);	\
+    fflush(stderr);					\
+  } while(0)
+
 #define getarg(a,type,conv)					\
   do{								\
     pointer p;							\
     if(args == sc->NIL){					\
-      fprintf(stderr,"Missing argument of type "#type"!");	\
-      fflush(stderr);						\
+      dbgmsg("Missing argument of type "#type"!\n");		\
       return sc->F;						\
     }								\
     p = pair_car(args);						\
     args = pair_cdr(args);					\
     if(!is_##type(p)){						\
-      fprintf(stderr,"Argument should be of type "#type"!");	\
-      fflush(stderr);						\
+      dbgmsg("Argument should be of type "#type"!\n");		\
       return sc->F;						\
     }								\
     (a) = conv(p);						\
