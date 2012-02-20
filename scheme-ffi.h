@@ -30,6 +30,7 @@
 #define rarg(a) getarg(a,real,rvalue)
 #define sarg(a) getarg(a,string,string_value)
 #define parg(a) getarg(a,foreignptr,fpvalue)
+#define symarg(a) getarg(a,symbol,symname)
 
 #define internfun(symbol,fptr)			\
   scheme_define(sc				\
