@@ -26,6 +26,26 @@
     (a) = conv(p);						\
   }while(0)
 
+#define getnarg(a)                                              \
+  do{                                                           \
+    pointer p;                                                  \
+    if(args == sc->NIL){                                        \
+      dbgmsg("Missing argument of type number!");               \
+      return sc->F;                                             \
+    }                                                           \
+    p = pair_car(args);                                         \
+    args = pair_cdr(args);                                      \
+    if(!is_number(p)){                                          \
+      dbgmsg("Argument should be of type number!");             \
+      return sc->F;                                             \
+    } else if(is_integer(p)){                                   \
+      (a) = ivalue(p);                                          \
+    } else if(is_real(p)){                                      \
+      (a) = rvalue(p);                                          \
+    }                                                           \
+  }while(0)
+
+#define narg(a) getnarg(a)
 #define iarg(a) getarg(a,integer,ivalue)
 #define rarg(a) getarg(a,real,rvalue)
 #define sarg(a) getarg(a,string,string_value)
