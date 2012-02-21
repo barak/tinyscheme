@@ -6,7 +6,7 @@
 
 #define dbgmsg(msg)					\
   do {							\
-    fprintf(stderr,__FILE__ ":" __LINE__ ": " msg);	\
+    fprintf(stderr,__FILE__ ":%d: " msg, __LINE__);	\
     fflush(stderr);					\
   } while(0)
 
