@@ -39,9 +39,13 @@ PLATFORM_FEATURES= -DSUN_DL=1
 # Cygwin
 #PLATFORM_FEATURES = -DUSE_STRLWR=0
 
+# MinGW/MSYS
+#SOsuf=dll
+#PLATFORM_FEATURES = -DUSE_STRLWR=0
+
 # Mac OS X
 #LD = gcc
-#LDFLAGS = -shared
+#LDFLAGS = --dynamiclib
 #DEBUG=-g -Wno-char-subscripts -O
 #SYS_LIBS= -ldl
 #PLATFORM_FEATURES= -DUSE_STRLWR=1 -D__APPLE__=1 -DOSX=1
