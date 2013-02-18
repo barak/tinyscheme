@@ -3,27 +3,26 @@ Date: Mon, 18 Feb 2013 09:44:52 +0000
 Subject: makefile
 
 ---
- makefile | 16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+ makefile | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
 diff --git a/makefile b/makefile
-index 9e617ec..caeebee 100644
+index 9e617ec..025868d 100644
 --- a/makefile
 +++ b/makefile
-@@ -1,6 +1,12 @@
+@@ -1,6 +1,11 @@
  # Makefile for TinyScheme
  # Time-stamp: <2002-06-24 14:13:27 gildea>
  
-+PREFIX=$(DESTDIR)/usr
-+BINDIR=$(PREFIX)/bin
-+MANDIR=$(PREFIX)/share/man/man1
-+INCDIR=$(PREFIX)/include
-+LIBDIR=$(PREFIX)/lib/tinyscheme
++prefix=/usr
++bindir=$(prefix)/bin
++incdir=$(prefix)/include
++libdir=$(prefix)/lib/tinyscheme
 +
  # Windows/2000
  #CC = cl -nologo
  #DEBUG= -W3 -Z7 -MD
-@@ -33,7 +39,7 @@ AR= ar crs
+@@ -33,7 +38,7 @@ AR= ar crs
  LD = gcc
  LDFLAGS = -shared
  DEBUG=-g -Wno-char-subscripts -O
@@ -32,24 +31,23 @@ index 9e617ec..caeebee 100644
  PLATFORM_FEATURES= -DSUN_DL=1
  
  # Cygwin
-@@ -50,7 +56,7 @@ PLATFORM_FEATURES= -DSUN_DL=1
+@@ -50,7 +55,7 @@ PLATFORM_FEATURES= -DSUN_DL=1
  #LIBPREFIX = lib
  #OUT = -o $@
  
 -FEATURES = $(PLATFORM_FEATURES) -DUSE_DL=1 -DUSE_MATH=0 -DUSE_ASCII_NAMES=0
-+FEATURES = $(PLATFORM_FEATURES) -DUSE_DL=1 -DUSE_MATH=1 -DUSE_ASCII_NAMES=0 -DInitFile=\"$(LIBDIR)/init.scm\"
++FEATURES = $(PLATFORM_FEATURES) -DUSE_DL=1 -DUSE_MATH=1 -DUSE_ASCII_NAMES=0 -DInitFile=\"$(libdir)/init.scm\"
  
  OBJS = scheme.$(Osuf) dynload.$(Osuf)
  
-@@ -59,6 +65,12 @@ STATICLIBTARGET = $(LIBPREFIX)tinyscheme.$(LIBsuf)
+@@ -59,6 +64,11 @@ STATICLIBTARGET = $(LIBPREFIX)tinyscheme.$(LIBsuf)
  
  all: $(LIBTARGET) $(STATICLIBTARGET) scheme$(EXE_EXT)
  
 +install: scheme
-+	install -m 755 -d $(BINDIR) $(MANDIR) $(LIBDIR)
-+	install -m 755 $< $(BINDIR)/tinyscheme
-+	install -m 644 debian/tinyscheme.1 $(MANDIR)
-+	install -m 644 init.scm $(LIBDIR)
++	install -m 755 -d $(DESTDIR)$(bindir) $(DESTDIR)$(libdir)
++	install -m 755 $< $(DESTDIR)$(bindir)/tinyscheme
++	install -m 644 init.scm $(DESTDIR)$(libdir)
 +
  %.$(Osuf): %.c
  	$(CC) -I. -c $(DEBUG) $(FEATURES) $(DL_FLAGS) $<
