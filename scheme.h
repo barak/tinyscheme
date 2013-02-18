@@ -70,7 +70,7 @@
 #endif
 
 #ifndef USE_PLIST
-# define USE_PLIST 1
+# define USE_PLIST 0
 #endif
 
 /* To force system errors through user-defined error handling (see *error-hook*) */
@@ -95,7 +95,7 @@
 #endif
 
 #ifndef INLINE
-# define INLINE inline
+# define INLINE
 #endif
 
 #ifndef USE_INTERFACE

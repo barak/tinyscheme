@@ -1,3 +1,19 @@
+tinyscheme (1.37-4) unstable; urgency=low
+
+  * Hijack package.
+  * Update Debian packaging scripts
+    - add watch file from qa.debian.org
+    - source format 3.0
+    - move upstream mods to debian/patches/
+    - dh 9
+    - add self to uploaders
+    - bump policy version (no changes required)
+    - add pointer to upstream svn repo to debian/copyright
+    - add homepage field
+    - add vcs fields
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 18 Feb 2013 08:47:15 +0000
+
 tinyscheme (1.37-3.1) unstable; urgency=medium
 
   * Non-maintainer upload.

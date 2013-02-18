@@ -1,11 +1,5 @@
 # Makefile for TinyScheme 
 # Time-stamp: <2002-06-24 14:13:27 gildea> 
-
-PREFIX=$(DESTDIR)/usr
-BINDIR=$(PREFIX)/bin
-MANDIR=$(PREFIX)/share/man/man1
-INCDIR=$(PREFIX)/include
-LIBDIR=$(PREFIX)/lib/tinyscheme
   
 # Windows/2000 
 #CC = cl -nologo 
@@ -39,7 +33,7 @@ AR= ar crs
 LD = gcc 
 LDFLAGS = -shared 
 DEBUG=-g -Wno-char-subscripts -O
-SYS_LIBS= -ldl -lm
+SYS_LIBS= -ldl
 PLATFORM_FEATURES= -DSUN_DL=1
 
  
@@ -53,7 +47,7 @@ PLATFORM_FEATURES= -DSUN_DL=1
 #LIBPREFIX = lib 
 #OUT = -o $@ 
  
-FEATURES = $(PLATFORM_FEATURES) -DUSE_DL=1 -DUSE_MATH=1 -DUSE_ASCII_NAMES=0 -DInitFile=\"$(LIBDIR)/init.scm\"
+FEATURES = $(PLATFORM_FEATURES) -DUSE_DL=1 -DUSE_MATH=0 -DUSE_ASCII_NAMES=0 
  
 OBJS = scheme.$(Osuf) dynload.$(Osuf) 
  
@@ -61,12 +55,6 @@ LIBTARGET = $(LIBPREFIX)tinyscheme.$(SOsuf)
 STATICLIBTARGET = $(LIBPREFIX)tinyscheme.$(LIBsuf)
 
 all: $(LIBTARGET) $(STATICLIBTARGET) scheme$(EXE_EXT)
-
-install: scheme
-	install -m 755 -d $(BINDIR) $(MANDIR) $(LIBDIR)
-	install -m 755 $< $(BINDIR)/tinyscheme
-	install -m 644 debian/tinyscheme.1 $(MANDIR)
-	install -m 644 init.scm $(LIBDIR)
 
 %.$(Osuf): %.c 
 	$(CC) -I. -c $(DEBUG) $(FEATURES) $(DL_FLAGS) $< 

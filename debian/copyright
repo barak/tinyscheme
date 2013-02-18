@@ -6,6 +6,12 @@ Upstream Author: Dimitrios Souflis <dsouflis@acm.org>
 
 Copyright: Copyright (c) 2000, Dimitrios Souflis
 
+Development repository at
+ git config svn-remote.svn.fetch 'trunk:refs/remotes/trunk'
+ git config svn-remote.svn.branches 'branches/*:refs/remotes/*'
+ git config svn-remote.svn.tags 'tags/*:refs/remotes/tags/*'
+ git config svn-remote.svn.url 'https://tinyscheme.svn.sourceforge.net/svnroot/tinyscheme'
+
 License:
 
                          LICENSE TERMS

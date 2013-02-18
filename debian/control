@@ -2,9 +2,13 @@ Source: tinyscheme
 Section: interpreters
 Priority: optional
 Maintainer: Panu Kalliokoski <atehwa@sange.fi>
-Uploaders: MJ Ray (Debian) <mjr@debian.org>
-Build-Depends: debhelper (>= 4.0.0)
-Standards-Version: 3.6.2
+Uploaders: MJ Ray (Debian) <mjr@debian.org>,
+	   Barak A. Pearlmutter <bap@debian.org>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.4
+Homepage: http://tinyscheme.sourceforge.net/
+Vcs-Git: git://git.debian.org/git/collab-maint/tinyscheme.git
+Vcs-Browser: http://git.debian.org/?p=collab-maint/tinyscheme.git
 
 Package: tinyscheme
 Architecture: any
