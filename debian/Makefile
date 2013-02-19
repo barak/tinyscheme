@@ -7,9 +7,6 @@ CPPFLAGS += -Wall -Wno-switch
 
 CFLAGS += -O2
 
-CFLAGS += -fpic
-LDFLAGS += -fpic
-
 LOADLIBES += -ldl -lm
 
 obj = scheme.o dynload.o
