@@ -1,4 +1,4 @@
-tinyscheme (1.37-4) unstable; urgency=low
+tinyscheme (1.40-1) unstable; urgency=low
 
   * Hijack package.
   * Update Debian packaging scripts
@@ -11,8 +11,17 @@ tinyscheme (1.37-4) unstable; urgency=low
     - add pointer to upstream svn repo to debian/copyright
     - add homepage field
     - add vcs fields
+  * New upstream version.
+    - forward port debian patches through dos2unix hassles
+    - patch to scheme.c obsoleted by upstream mods, remove
+  * Address lintian man page hyphen dash slash concerns
+  * Migrate man page installation from makefile patch to debian/manpages
+  * Write and engage custom debian/Makefile that uses implicit rules thus
+    allowing hardening flags to flow via the default mechanisms.
+  * Migrate #define tweaks from scheme.h patch to debian/Makefile.
+  * Remove -fpic from debian/Makefile: not building shared library.
 
- -- Barak A. Pearlmutter <bap@debian.org>  Mon, 18 Feb 2013 08:47:15 +0000
+ -- Barak A. Pearlmutter <bap@debian.org>  Tue, 19 Feb 2013 14:33:59 +0000
 
 tinyscheme (1.37-3.1) unstable; urgency=medium
 
