@@ -1,4 +1,4 @@
-tinyscheme (1.40-1) unstable; urgency=low
+tinyscheme (1.40.svn.2012.12.14-1) unstable; urgency=low
 
   * Hijack package.
   * Update Debian packaging scripts
@@ -20,8 +20,11 @@ tinyscheme (1.40-1) unstable; urgency=low
     allowing hardening flags to flow via the default mechanisms.
   * Migrate #define tweaks from scheme.h patch to debian/Makefile.
   * Remove -fpic from debian/Makefile: not building shared library.
+  * Merge with upstream development snapshot.
+    - Trunk of upstream svn repo, commit date 14-Dec-2014.
+    - Consists almost entirely of bug fixes.
 
- -- Barak A. Pearlmutter <bap@debian.org>  Tue, 19 Feb 2013 14:33:59 +0000
+ -- Barak A. Pearlmutter <bap@debian.org>  Tue, 19 Feb 2013 14:39:02 +0000
 
 tinyscheme (1.37-3.1) unstable; urgency=medium
 
