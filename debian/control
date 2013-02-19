@@ -7,8 +7,8 @@ Uploaders: MJ Ray (Debian) <mjr@debian.org>,
 Build-Depends: debhelper (>= 9)
 Standards-Version: 3.9.4
 Homepage: http://tinyscheme.sourceforge.net/
-Vcs-Git: git://git.debian.org/git/collab-maint/tinyscheme.git
-Vcs-Browser: http://git.debian.org/?p=collab-maint/tinyscheme.git
+Vcs-Git: git://anonscm.debian.org/collab-maint/tinyscheme.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/tinyscheme.git
 
 Package: tinyscheme
 Architecture: any
