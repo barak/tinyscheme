@@ -30,6 +30,7 @@
 #include <limits.h>
 #include <float.h>
 #include <ctype.h>
+#include <errno.h>
 
 #if USE_STRCASECMP
 #include <strings.h>
@@ -1130,10 +1131,13 @@ static pointer mk_atom(scheme *sc, char *q) {
                return (mk_symbol(sc, strlwr(q)));
           }
      }
-     if(has_dec_point) {
-          return mk_real(sc,atof(q));
+     if (!has_dec_point) {
+          /* check for overflow in conversion to long, if so use float */
+          long v = strtol(q, NULL, 10);
+          if (errno != ERANGE)
+               return (mk_integer(sc, v));
      }
-     return (mk_integer(sc, atol(q)));
+     return mk_real(sc,atof(q));
 }
 
 /* make constant */
