@@ -1,3 +1,9 @@
+tinyscheme (1.41-1) unstable; urgency=low
+
+  * New upsteram version.
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 22 Apr 2013 07:41:32 +0100
+
 tinyscheme (1.40.svn.2012.12.14-1) unstable; urgency=low
 
   * Hijack package.
