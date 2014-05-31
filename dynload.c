@@ -21,7 +21,9 @@ static void make_init_fn(const char *name, char *init_fn);
 #else
 typedef void *HMODULE;
 typedef void (*FARPROC)();
+#ifndef SUN_DL
 #define SUN_DL
+#endif
 #include <dlfcn.h>
 #endif
 
