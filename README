@@ -1,12 +1,15 @@
-Subversion fork of TinyScheme, by Dimitrios Souflis and Jonathan S. Shapiro.
+Fork of TinyScheme, with additional features.
 
-http://tinyscheme.sourceforge.net/
+This fork features a foreign function interface and a new cell type called
+foreign-pointer, wich has a special, user-defined finalizer function that is
+invoked when the cell is collected, thus allowing for the proper release of
+resources.
+Also, each foreign pointer has a user-defined tag field, wich allows run-time
+identification of the resources owned.
 
-Quoted from the site:
-TinyScheme is a lightweight Scheme interpreter that implements as large a subset
-of R5RS as was possible without getting very large and complicated. It is meant
-to be used as an embedded scripting interpreter for other programs. As such, it
-does not offer IDEs or extensive toolkits although it does sport a small
-top-level loop, included conditionally. A lot of functionality in TinyScheme is
-included conditionally, to allow developers freedom in balancing features and
-footprint.
+Toghether, these features facilitate the use of existing native libraries, by
+making easier the wrapping of opaque data types and the hooking of native
+functions.
+
+The original TinyScheme, by Dimitrios Souflis and Jonathan S. Shapiro is at
+http://tinyscheme.sourceforge.net/.
