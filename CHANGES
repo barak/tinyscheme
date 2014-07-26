@@ -1,6 +1,14 @@
 Change Log
 ----------
 
+Version 1.42
+    Other changes:
+        - Fixed a bug in the close-port routine in init.scm
+        - Fixed possible crash loading file due to uninitialized variable  (MP)
+
+    Contributors:
+        Kevin Cozens, and Mauro Persano.
+
 Version 1.41
     Bugs fixed:
         #3020389 - Added makefile section for Mac OS X  (SL)
