@@ -5,6 +5,7 @@ Version 1.42
     Other changes:
         - Fixed a bug in the close-port routine in init.scm
         - Fixed possible crash loading file due to uninitialized variable  (MP)
+	- Don't use snprintf() in atom2str to return some fixed strings  (KC & MP)
 
     Contributors:
         Kevin Cozens, and Mauro Persano.
