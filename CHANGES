@@ -3,12 +3,13 @@ Change Log
 
 Version 1.42
     Other changes:
+        - Fixed segfault crash caused by invalid syntax to cond  (PG)
         - Fixed a bug in the close-port routine in init.scm
         - Fixed possible crash loading file due to uninitialized variable  (MP)
-	- Don't use snprintf() in atom2str to return some fixed strings  (KC & MP)
+        - Don't use snprintf() in atom2str to return some fixed strings  (KC/MP)
 
     Contributors:
-        Kevin Cozens, and Mauro Persano.
+        Kevin Cozens, Mauro Persano, and Pedro Gimeno.
 
 Version 1.41
     Bugs fixed:
