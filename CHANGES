@@ -7,9 +7,12 @@ Version 1.42
         - Fixed a bug in the close-port routine in init.scm
         - Fixed possible crash loading file due to uninitialized variable  (MP)
         - Don't use snprintf() in atom2str to return some fixed strings  (KC/MP)
+        - Added "tinyscheme" to the features list  (JW)
+        - Added Sconstruct to allow building using scons  (AG)
 
     Contributors:
-        Kevin Cozens, Mauro Persano, and Pedro Gimeno.
+        Kevin Cozens, Mauro Persano, Pedro Gimeno, James Woodcock, and Atanu
+        Ghosh.
 
 Version 1.41
     Bugs fixed:
