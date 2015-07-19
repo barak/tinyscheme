@@ -1,3 +1,12 @@
+tinyscheme (1.41-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Fix "ftbfs with GCC-5": add patch from Nicholas Luedtke:
+    Removed inline from function signatures to work with test cases.
+    (Closes: #778146)
+
+ -- gregor herrmann <gregoa@debian.org>  Sun, 19 Jul 2015 16:15:11 +0200
+
 tinyscheme (1.41-1) unstable; urgency=low
 
   * New upsteram version.
