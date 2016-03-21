@@ -1978,19 +1978,23 @@ static void atom2str(scheme *sc, pointer l, int f, char **pp, int *plen) {
                switch(c) {
                case ' ':
                     p = "#\\space";
+                    break;
                case '\n':
                     p = "#\\newline";
+                    break;
                case '\r':
                     p = "#\\return";
+                    break;
                case '\t':
                     p = "#\\tab";
+                    break;
                default:
 #if USE_ASCII_NAMES
                     if(c==127) {
                          p = "#\\del";
                          break;
                     } else if(c<32) {
-                         snprintf(p, STRBUFFSIZE, "#\\%s", charnames[c]);
+                         snprintf(p,STRBUFFSIZE, "#\\%s",charnames[c]);
                          break;
                     }
 #else
