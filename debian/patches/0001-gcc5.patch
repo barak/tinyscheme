@@ -7,7 +7,7 @@ Subject: gcc5
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/scheme.c b/scheme.c
-index 99f9106..ab38963 100644
+index 3d4330d..bb6e51d 100644
 --- a/scheme.c
 +++ b/scheme.c
 @@ -200,8 +200,8 @@ INTERFACE double rvalue(pointer p)    { return (!num_is_integer(p)?(p)->_object.
