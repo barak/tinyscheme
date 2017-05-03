@@ -4,8 +4,8 @@ Priority: optional
 Maintainer: Panu Kalliokoski <atehwa@sange.fi>
 Uploaders: MJ Ray (Debian) <mjr@debian.org>,
 	   Barak A. Pearlmutter <bap@debian.org>
-Build-Depends: debhelper (>= 9)
-Standards-Version: 3.9.4
+Build-Depends: debhelper (>= 10)
+Standards-Version: 3.9.8
 Homepage: http://tinyscheme.sourceforge.net/
 Vcs-Git: git://anonscm.debian.org/collab-maint/tinyscheme.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/tinyscheme.git
