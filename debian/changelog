@@ -1,3 +1,12 @@
+tinyscheme (1.41-1.2) unstable; urgency=medium
+
+  * Merge NMU
+  * Bump to debhelper 10
+  * Bump standards version, no changes required
+  * Harden
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Wed, 03 May 2017 13:11:07 +0100
+
 tinyscheme (1.41-1.1) unstable; urgency=medium
 
   * Non-maintainer upload.
