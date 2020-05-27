@@ -63,7 +63,7 @@
  *  Basic memory allocation units
  */
 
-#define banner "TinyScheme 1.41"
+#define banner "TinyScheme 1.42"
 
 #include <string.h>
 #include <stdlib.h>
