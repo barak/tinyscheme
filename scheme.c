@@ -4807,6 +4807,11 @@ void scheme_load_file(scheme *sc, FILE *fin)
 { scheme_load_named_file(sc,fin,0); }
 
 void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename) {
+  if (fin == NULL)
+  {
+    fprintf(stderr,"File pointer can not be NULL when loading a file\n");
+    return;
+  }
   dump_stack_reset(sc);
   sc->envir = sc->global_env;
   sc->file_i=0;
