@@ -1,4 +1,4 @@
-/* T I N Y S C H E M E    1 . 4 1
+/* T I N Y S C H E M E    1 . 4 2
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -3432,14 +3432,19 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
 
      case OP_STRREF: { /* string-ref */
           char *str;
+          pointer x;
           int index;
 
           str=strvalue(car(sc->args));
 
-          index=ivalue(cadr(sc->args));
+          x=cadr(sc->args);
+          if (is_integer(x)) {
+               Error_1(sc,"string-ref: index must be exact:",x);
+          }
 
+          index=ivalue(x);
           if(index>=strlength(car(sc->args))) {
-               Error_1(sc,"string-ref: out of bounds:",cadr(sc->args));
+               Error_1(sc,"string-ref: out of bounds:",x);
           }
 
           s_return(sc,mk_character(sc,((unsigned char*)str)[index]));
@@ -3447,6 +3452,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
 
      case OP_STRSET: { /* string-set! */
           char *str;
+          pointer x;
           int index;
           int c;
 
@@ -3455,9 +3461,14 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
           }
           str=strvalue(car(sc->args));
 
-          index=ivalue(cadr(sc->args));
+          x=cadr(sc->args);
+          if (is_integer(x)) {
+               Error_1(sc,"string-set!: index must be exact:",x);
+          }
+
+          index=ivalue(x);
           if(index>=strlength(car(sc->args))) {
-               Error_1(sc,"string-set!: out of bounds:",cadr(sc->args));
+               Error_1(sc,"string-set!: out of bounds:",x);
           }
 
           c=charvalue(caddr(sc->args));
@@ -3553,27 +3564,38 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
           s_return(sc,mk_integer(sc,ivalue(car(sc->args))));
 
      case OP_VECREF: { /* vector-ref */
+          pointer x;
           int index;
 
-          index=ivalue(cadr(sc->args));
+          x=cadr(sc->args);
+          if (is_integer(x)) {
+               Error_1(sc,"vector-ref: index must be exact:",x);
+          }
+          index=ivalue(x);
 
           if(index>=ivalue(car(sc->args))) {
-               Error_1(sc,"vector-ref: out of bounds:",cadr(sc->args));
+               Error_1(sc,"vector-ref: out of bounds:",x);
           }
 
           s_return(sc,vector_elem(car(sc->args),index));
      }
 
      case OP_VECSET: {   /* vector-set! */
+          pointer x;
           int index;
 
           if(is_immutable(car(sc->args))) {
                Error_1(sc,"vector-set!: unable to alter immutable vector:",car(sc->args));
           }
 
-          index=ivalue(cadr(sc->args));
+          x=cadr(sc->args);
+          if (is_integer(x)) {
+               Error_1(sc,"vector-set!: index must be exact:",x);
+          }
+
+          index=ivalue(x);
           if(index>=ivalue(car(sc->args))) {
-               Error_1(sc,"vector-set!: out of bounds:",cadr(sc->args));
+               Error_1(sc,"vector-set!: out of bounds:",x);
           }
 
           set_vector_elem(car(sc->args),index,caddr(sc->args));
