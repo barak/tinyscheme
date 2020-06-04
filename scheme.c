@@ -4001,6 +4001,9 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
      case OP_CURR_ENV: /* current-environment */
           s_return(sc,sc->envir);
 
+     default:
+          snprintf(sc->strbuff,STRBUFFSIZE,"%d: illegal operator", sc->op);
+          Error_0(sc,sc->strbuff);
      }
      return sc->T;
 }
