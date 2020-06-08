@@ -3432,14 +3432,19 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
 
      case OP_STRREF: { /* string-ref */
           char *str;
+          pointer x;
           int index;
 
           str=strvalue(car(sc->args));
 
-          index=ivalue(cadr(sc->args));
+          x=cadr(sc->args);
+          if (is_integer(x)) {
+               Error_1(sc,"string-ref: index must be exact:",x);
+          }
 
+          index=ivalue(x);
           if(index>=strlength(car(sc->args))) {
-               Error_1(sc,"string-ref: out of bounds:",cadr(sc->args));
+               Error_1(sc,"string-ref: out of bounds:",x);
           }
 
           s_return(sc,mk_character(sc,((unsigned char*)str)[index]));
@@ -3447,6 +3452,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
 
      case OP_STRSET: { /* string-set! */
           char *str;
+          pointer x;
           int index;
           int c;
 
@@ -3455,9 +3461,14 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
           }
           str=strvalue(car(sc->args));
 
-          index=ivalue(cadr(sc->args));
+          x=cadr(sc->args);
+          if (is_integer(x)) {
+               Error_1(sc,"string-set!: index must be exact:",x);
+          }
+
+          index=ivalue(x);
           if(index>=strlength(car(sc->args))) {
-               Error_1(sc,"string-set!: out of bounds:",cadr(sc->args));
+               Error_1(sc,"string-set!: out of bounds:",x);
           }
 
           c=charvalue(caddr(sc->args));
@@ -3553,27 +3564,38 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
           s_return(sc,mk_integer(sc,ivalue(car(sc->args))));
 
      case OP_VECREF: { /* vector-ref */
+          pointer x;
           int index;
 
-          index=ivalue(cadr(sc->args));
+          x=cadr(sc->args);
+          if (is_integer(x)) {
+               Error_1(sc,"vector-ref: index must be exact:",x);
+          }
+          index=ivalue(x);
 
           if(index>=ivalue(car(sc->args))) {
-               Error_1(sc,"vector-ref: out of bounds:",cadr(sc->args));
+               Error_1(sc,"vector-ref: out of bounds:",x);
           }
 
           s_return(sc,vector_elem(car(sc->args),index));
      }
 
      case OP_VECSET: {   /* vector-set! */
+          pointer x;
           int index;
 
           if(is_immutable(car(sc->args))) {
                Error_1(sc,"vector-set!: unable to alter immutable vector:",car(sc->args));
           }
 
-          index=ivalue(cadr(sc->args));
+          x=cadr(sc->args);
+          if (is_integer(x)) {
+               Error_1(sc,"vector-set!: index must be exact:",x);
+          }
+
+          index=ivalue(x);
           if(index>=ivalue(car(sc->args))) {
-               Error_1(sc,"vector-set!: out of bounds:",cadr(sc->args));
+               Error_1(sc,"vector-set!: out of bounds:",x);
           }
 
           set_vector_elem(car(sc->args),index,caddr(sc->args));
@@ -3654,6 +3676,7 @@ static pointer opexe_3(scheme *sc, enum scheme_opcodes op) {
                case OP_GRE:   comp_func=num_gt; break;
                case OP_LEQ:   comp_func=num_le; break;
                case OP_GEQ:   comp_func=num_ge; break;
+               default:       break;    /* Quiet the compiler */
           }
           x=sc->args;
           v=nvalue(car(x));
@@ -3897,7 +3920,8 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
           switch(op) {
                case OP_OPEN_INFILE:     prop=port_input; break;
                case OP_OPEN_OUTFILE:    prop=port_output; break;
-               case OP_OPEN_INOUTFILE: prop=port_input|port_output; break;
+               case OP_OPEN_INOUTFILE:  prop=port_input|port_output; break;
+               default:                 break;  /* Quiet the compiler */
           }
           p=port_from_filename(sc,strvalue(car(sc->args)),prop);
           if(p==sc->NIL) {
@@ -3914,6 +3938,7 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
           switch(op) {
                case OP_OPEN_INSTRING:     prop=port_input; break;
                case OP_OPEN_INOUTSTRING:  prop=port_input|port_output; break;
+               default:                   break;    /* Quiet the compiler */
           }
           p=port_from_string(sc, strvalue(car(sc->args)),
                  strvalue(car(sc->args))+strlength(car(sc->args)), prop);
@@ -3976,6 +4001,9 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
      case OP_CURR_ENV: /* current-environment */
           s_return(sc,sc->envir);
 
+     default:
+          snprintf(sc->strbuff,STRBUFFSIZE,"%d: illegal operator", sc->op);
+          Error_0(sc,sc->strbuff);
      }
      return sc->T;
 }
@@ -4807,6 +4835,11 @@ void scheme_load_file(scheme *sc, FILE *fin)
 { scheme_load_named_file(sc,fin,0); }
 
 void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename) {
+  if (fin == NULL)
+  {
+    fprintf(stderr,"File pointer can not be NULL when loading a file\n");
+    return;
+  }
   dump_stack_reset(sc);
   sc->envir = sc->global_env;
   sc->file_i=0;
@@ -4963,7 +4996,7 @@ int MacTS_main(int argc, char **argv) {
 int main(int argc, char **argv) {
 #endif
   scheme sc;
-  FILE *fin;
+  FILE *fin = NULL;
   char *file_name=InitFile;
   int retcode;
   int isfile=1;
