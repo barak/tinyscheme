@@ -1,9 +1,7 @@
 Source: tinyscheme
 Section: interpreters
 Priority: optional
-Maintainer: Panu Kalliokoski <atehwa@sange.fi>
-Uploaders: MJ Ray (Debian) <mjr@debian.org>,
-	   Barak A. Pearlmutter <bap@debian.org>
+Maintainer: Barak A. Pearlmutter <bap@debian.org>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.5.0
 Rules-Requires-Root: no

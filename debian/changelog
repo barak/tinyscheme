@@ -1,3 +1,9 @@
+tinyscheme (1.42.svn.2020.06.04-2) unstable; urgency=medium
+
+  * List self as maintainer, per MIA team request (closes: #871237)
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 08 Jun 2020 23:11:24 +0100
+
 tinyscheme (1.42.svn.2020.06.04-1) unstable; urgency=medium
 
   [ Ondřej Nový ]
