@@ -1,4 +1,4 @@
 version=3
 opts=dversionmangle=s/\+dfsg\d*$//,uversionmangle=s/_/./g;s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha|b|a)[\-\.]?\d*)$/$1~$2/ \
-http://qa.debian.org/watch/sf.php/tinyscheme/tinyscheme-(\d.*)\.(?:tgz|zip|tbz2|txz|tar\.(?:gz|bz2|xz))
+https://qa.debian.org/watch/sf.php/tinyscheme/tinyscheme-(\d.*)\.(?:tgz|zip|tbz2|txz|tar\.(?:gz|bz2|xz))
 # Bart Martens <bartm@debian.org>  Sun, 06 Jan 2013 19:44:07 +0000
