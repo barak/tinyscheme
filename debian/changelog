@@ -10,8 +10,11 @@ tinyscheme (1.42.svn.2020.06.04-1) unstable; urgency=medium
   * Set debhelper-compat version in Build-Depends.
   * New upstream release
   * Merge upstream changes
+  * Bump policy
+  * Rules-Requires-Root: no
+  * non-build-breaking typo in debian/rules
 
- -- Barak A. Pearlmutter <bap@debian.org>  Mon, 08 Jun 2020 10:54:26 +0100
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 08 Jun 2020 11:21:06 +0100
 
 tinyscheme (1.41.svn.2016.03.21-1) unstable; urgency=medium
 
