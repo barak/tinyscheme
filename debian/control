@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Panu Kalliokoski <atehwa@sange.fi>
 Uploaders: MJ Ray (Debian) <mjr@debian.org>,
 	   Barak A. Pearlmutter <bap@debian.org>
-Build-Depends: debhelper (>= 10)
+Build-Depends: debhelper (>= 13~)
 Standards-Version: 3.9.8
 Homepage: http://tinyscheme.sourceforge.net/
 Vcs-Git: https://salsa.debian.org/debian/tinyscheme.git
