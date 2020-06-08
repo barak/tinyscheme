@@ -1,4 +1,4 @@
-tinyscheme (1.42-1) UNRELEASED; urgency=medium
+tinyscheme (1.42.svn.2020.06.04-1) unstable; urgency=medium
 
   [ Ondřej Nový ]
   * d/control: Set Vcs-* to salsa.debian.org
@@ -9,8 +9,9 @@ tinyscheme (1.42-1) UNRELEASED; urgency=medium
   * Bump debhelper from old 10 to 13.
   * Set debhelper-compat version in Build-Depends.
   * New upstream release
+  * Merge upstream changes
 
- -- Barak A. Pearlmutter <bap@debian.org>  Mon, 08 Jun 2020 10:50:45 +0100
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 08 Jun 2020 10:54:26 +0100
 
 tinyscheme (1.41.svn.2016.03.21-1) unstable; urgency=medium
 
