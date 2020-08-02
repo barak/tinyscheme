@@ -446,7 +446,7 @@ static num num_rem(num a, num b) {
  e1=num_ivalue(a);
  e2=num_ivalue(b);
  res=e1%e2;
- /* remainder should have same sign as second operand */
+ /* remainder should have same sign as first operand */
  if (res > 0) {
      if (e1 < 0) {
         res -= labs(e2);
