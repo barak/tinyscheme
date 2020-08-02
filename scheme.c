@@ -33,7 +33,7 @@
 
 #if USE_STRCASECMP
 #include <strings.h>
-# ifndef __APPLE__
+# if !defined(__APPLE__) || defined(OSX)
 #  define stricmp strcasecmp
 # endif
 #endif
@@ -68,7 +68,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(OSX)
 static int stricmp(const char *s1, const char *s2)
 {
   unsigned char c1, c2;
@@ -83,7 +83,7 @@ static int stricmp(const char *s1, const char *s2)
   } while (c1 != 0);
   return 0;
 }
-#endif /* __APPLE__ */
+#endif /* __APPLE__ && !OSX */
 
 #if USE_STRLWR
 static const char *strlwr(char *s) {
