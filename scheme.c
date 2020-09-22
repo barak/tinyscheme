@@ -3441,7 +3441,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
           str=strvalue(car(sc->args));
 
           x=cadr(sc->args);
-          if (is_integer(x)) {
+          if (!is_integer(x)) {
                Error_1(sc,"string-ref: index must be exact:",x);
           }
 
@@ -3465,7 +3465,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
           str=strvalue(car(sc->args));
 
           x=cadr(sc->args);
-          if (is_integer(x)) {
+          if (!is_integer(x)) {
                Error_1(sc,"string-set!: index must be exact:",x);
           }
 
@@ -3571,7 +3571,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
           int index;
 
           x=cadr(sc->args);
-          if (is_integer(x)) {
+          if (!is_integer(x)) {
                Error_1(sc,"vector-ref: index must be exact:",x);
           }
           index=ivalue(x);
@@ -3592,7 +3592,7 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
           }
 
           x=cadr(sc->args);
-          if (is_integer(x)) {
+          if (!is_integer(x)) {
                Error_1(sc,"vector-set!: index must be exact:",x);
           }
 
