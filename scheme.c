@@ -1757,7 +1757,10 @@ static INLINE int is_one_of(char *s, int c) {
 
 /* skip white characters */
 static INLINE int skipspace(scheme *sc) {
-     int c = 0, curr_line = 0;
+     int c = 0;
+#if SHOW_ERROR_LINE
+     int curr_line = 0;
+#endif
 
      do {
          c=inchar(sc);
