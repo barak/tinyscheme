@@ -48,6 +48,12 @@
 (macro (when form)
      `(if ,(cadr form) (begin ,@(cddr form))))
 
+(define (eval-and f lst)
+  (or (null? lst) (and (f (car lst)) (eval-and f (cdr lst)))))
+
+(define (eval-or f lst)
+  (and (not (null? lst)) (or (f (car lst)) (eval-or f (cdr lst)))))
+
 ; DEFINE-MACRO Contributed by Andy Gaynor
 (macro (define-macro dform)
   (if (symbol? (cadr dform))
@@ -678,39 +684,34 @@
                     (* (quotient *seed* q) r)))
           (if (< *seed* 0) (set! *seed* (+ *seed* m)))
           *seed*))
-;; SRFI-0
-;; COND-EXPAND
-;; Implemented as a macro
+
+;; SRFI-0 COND-EXPAND implemented as a macro:
+
 (define *features* '(srfi-0 tinyscheme))
 
-(define-macro (cond-expand . cond-action-list)
-  (cond-expand-runtime cond-action-list))
+(define (features) *features*)
 
-(define (cond-expand-runtime cond-action-list)
-  (if (null? cond-action-list)
-      #t
-      (if (cond-eval (caar cond-action-list))
-          `(begin ,@(cdar cond-action-list))
-          (cond-expand-runtime (cdr cond-action-list)))))
+(define-macro (cond-expand . clauses)
+  (cond-expand-runtime clauses))
 
-(define (cond-eval-and cond-list)
-  (foldr (lambda (x y) (and (cond-eval x) (cond-eval y))) #t cond-list))
+(define (cond-expand-runtime clauses)
+  (if (null? clauses)
+      (error "cond-expand : no matching clause")
+      (if (cond-expand-eval (caar clauses))
+          `(begin ,@(cdar clauses))
+          (cond-expand-runtime (cdr clauses)))))
 
-(define (cond-eval-or cond-list)
-  (foldr (lambda (x y) (or (cond-eval x) (cond-eval y))) #f cond-list))
-
-(define (cond-eval condition)
-  (cond
-    ((symbol? condition)
-       (if (member condition *features*) #t #f))
-    ((eq? condition #t) #t)
-    ((eq? condition #f) #f)
-    (else (case (car condition)
-            ((and) (cond-eval-and (cdr condition)))
-            ((or) (cond-eval-or (cdr condition)))
-            ((not) (if (not (null? (cddr condition)))
-                     (error "cond-expand : 'not' takes 1 argument")
-                     (not (cond-eval (cadr condition)))))
-            (else (error "cond-expand : unknown operator" (car condition)))))))
+(define (cond-expand-eval req)
+  (cond ((symbol? req)
+         (or (eq? 'else req) (not (not (memq req *features*)))))
+        ((and (pair? req) (eq? (car req) 'and))
+         (eval-and cond-expand-eval (cdr req)))
+        ((and (pair? req) (eq? (car req) 'or))
+         (eval-or cond-expand-eval (cdr req)))
+        ((and (pair? req) (eq? (car req) 'not)
+              (pair? (cdr req)) (null? (cddr req)))
+         (not (cond-expand-eval (cadr req))))
+        (else
+         (error "cond-expand : cannot parse requirement" req))))
 
 (gc-verbose #f)
