@@ -2,8 +2,9 @@ tinyscheme (1.42.svn.2020.06.04-3) UNRELEASED; urgency=medium
 
   * Update standards version to 4.5.1, no changes needed.
   * Update watch file format version to 4.
+  * Quilt patch for cond-expand issue
 
- -- Barak A. Pearlmutter <bap@debian.org>  Tue, 20 Jul 2021 22:57:20 -0000
+ -- Barak A. Pearlmutter <bap@debian.org>  Tue, 20 Jul 2021 23:02:13 +0100
 
 tinyscheme (1.42.svn.2020.06.04-2) unstable; urgency=medium
 
