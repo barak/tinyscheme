@@ -1,3 +1,9 @@
+tinyscheme (1.42.svn.2020.06.04-3) UNRELEASED; urgency=medium
+
+  * Update standards version to 4.5.1, no changes needed.
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Tue, 20 Jul 2021 22:57:20 -0000
+
 tinyscheme (1.42.svn.2020.06.04-2) unstable; urgency=medium
 
   * List self as maintainer, per MIA team request (closes: #871237)
