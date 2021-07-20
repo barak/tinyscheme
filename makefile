@@ -32,7 +32,7 @@ AR= ar crs
 # Linux
 LD = gcc
 LDFLAGS = -shared
-DEBUG=-g -Wno-char-subscripts -O
+DEBUG=-g -Wall -Wno-char-subscripts -O
 SYS_LIBS= -ldl -lm
 PLATFORM_FEATURES= -DSUN_DL=1
 
@@ -48,7 +48,7 @@ PLATFORM_FEATURES= -DSUN_DL=1
 #LDFLAGS = --dynamiclib
 #DEBUG=-g -Wno-char-subscripts -O
 #SYS_LIBS= -ldl
-#PLATFORM_FEATURES= -DUSE_STRLWR=1 -D__APPLE__=1 -DOSX=1
+#PLATFORM_FEATURES= -DUSE_STRLWR=1 -DOSX=1
 
 
 # Solaris
