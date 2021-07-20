@@ -1,10 +1,11 @@
-tinyscheme (1.42.svn.2020.06.04-3) UNRELEASED; urgency=medium
+tinyscheme (1.42.svn.2020.09.28-1) UNRELEASED; urgency=medium
 
   * Update standards version to 4.5.1, no changes needed.
   * Update watch file format version to 4.
   * Quilt patch for cond-expand issue
+  * Track upstream SVN
 
- -- Barak A. Pearlmutter <bap@debian.org>  Tue, 20 Jul 2021 23:02:13 +0100
+ -- Barak A. Pearlmutter <bap@debian.org>  Tue, 20 Jul 2021 23:16:24 +0100
 
 tinyscheme (1.42.svn.2020.06.04-2) unstable; urgency=medium
 
